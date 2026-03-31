@@ -47,8 +47,10 @@ function processRequest(action, payload) {
       case 'getTraineeAssignments': result = getTraineeAssignments(payload.personalId); break;
       case 'submitTraineeAssignment': result = submitTraineeAssignment(payload.personalId, payload.asmId, payload.url); break;
       case 'getMentorAssignmentsList': result = getMentorAssignmentsList(payload.mentorId); break;
-      // 💡 รับค่า score มาจากหน้าเว็บด้วย
       case 'evaluateAssignment': result = evaluateAssignment(payload.logId, payload.status, payload.comment, payload.score); break;
+      
+      // 🏆 ดึง Matrix ของ Admin
+      case 'getAllAssignmentsMatrix': result = getAllAssignmentsMatrix(); break;
 
       default: throw new Error("Action ไม่ถูกต้อง");
     }
@@ -558,14 +560,12 @@ function submitTraineeAssignment(personalId, asmId, url) {
     }
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
     const logId = "WORK-" + new Date().getTime();
-    // ส่งค่าว่างในคอลัมน์ H เผื่อไว้ให้คะแนน
     logSheet.appendRow([logId, personalId, asmId, url, 'รอตรวจ', '', timestamp, '']);
     SpreadsheetApp.flush();
     return { status: 'success', message: 'ส่งงานเรียบร้อยแล้ว' };
   } catch (e) { return { status: 'error', message: e.message }; } finally { lock.releaseLock(); }
 }
 
-// 💡 8. Mentor Assignments (Matrix View & Scoring)
 function getMentorAssignmentsList(mentorId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -614,7 +614,6 @@ function getMentorAssignmentsList(mentorId) {
         const asmId = logData[i][2].toString();
         if (!submissions[pId]) submissions[pId] = {};
         if (!submissions[pId][asmId]) {
-          // ดึงคะแนนจากคอลัมน์ H (index 7)
           submissions[pId][asmId] = {
             logId: logData[i][0], url: logData[i][3], status: logData[i][4],
             comment: logData[i][5], timestamp: logData[i][6], 
@@ -628,7 +627,6 @@ function getMentorAssignmentsList(mentorId) {
   } catch (e) { return { status: 'error', message: e.message }; }
 }
 
-// 💡 เขียนคะแนนและประเมินลง DB (คอลัมน์ 8)
 function evaluateAssignment(logId, status, comment, score) {
   const lock = LockService.getScriptLock();
   try {
@@ -642,7 +640,6 @@ function evaluateAssignment(logId, status, comment, score) {
       if (data[i][0].toString() === logId.toString()) {
         logSheet.getRange(i + 1, 5).setValue(status);
         logSheet.getRange(i + 1, 6).setValue(comment);
-        // บันทึกคะแนนลงคอลัมน์ H (คอลัมน์ที่ 8)
         logSheet.getRange(i + 1, 8).setValue(score !== undefined ? score : '');
         SpreadsheetApp.flush();
         return { status: 'success', message: 'บันทึกผลการประเมินและคะแนนเรียบร้อย' };
@@ -650,4 +647,58 @@ function evaluateAssignment(logId, status, comment, score) {
     }
     return { status: 'error', message: 'ไม่พบรายการส่งงานนี้' };
   } catch (e) { return { status: 'error', message: e.message }; } finally { lock.releaseLock(); }
+}
+
+// 🏆 ดึง Matrix ของ Admin
+function getAllAssignmentsMatrix() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const usersData = ss.getSheetByName('Users').getDataRange().getValues();
+    const idIdx = usersData[0].indexOf('personal_id');
+    const nameIdx = usersData[0].indexOf('name');
+    const roleIdx = usersData[0].indexOf('role');
+    const groupIdx = usersData[0].indexOf('group_target');
+
+    let trainees = [];
+    for (let i = 1; i < usersData.length; i++) {
+      if (usersData[i][roleIdx].toString().trim().toUpperCase() === 'TRAINEE') {
+        trainees.push({ 
+          id: usersData[i][idIdx].toString(), 
+          name: usersData[i][nameIdx].toString(),
+          group: groupIdx !== -1 ? usersData[i][groupIdx].toString() : '-'
+        });
+      }
+    }
+
+    let confSheet = ss.getSheetByName('Assignments_Config');
+    if (!confSheet) return { status: 'error', message: 'ไม่พบชีต Assignments_Config' };
+    const confData = confSheet.getDataRange().getDisplayValues();
+    const cHeaders = confData[0];
+    const cIdIdx = cHeaders.indexOf('asm_id');
+    const cNameIdx = cHeaders.indexOf('asm_name');
+    const cEndIdx = cHeaders.indexOf('end_datetime');
+    const cActIdx = cHeaders.indexOf('is_active');
+
+    let assignments = [];
+    for (let i = 1; i < confData.length; i++) {
+      if(cIdIdx !== -1 && cActIdx !== -1 && confData[i][cActIdx].trim().toUpperCase() === 'TRUE') {
+         assignments.push({ id: confData[i][cIdIdx].trim(), name: cNameIdx !== -1 ? confData[i][cNameIdx].trim() : '', end: cEndIdx !== -1 ? confData[i][cEndIdx].trim() : '' });
+      }
+    }
+
+    let logSheet = ss.getSheetByName('Assignments_Log');
+    let submissions = {};
+    if (logSheet) {
+      const logData = logSheet.getDataRange().getValues();
+      for (let i = logData.length - 1; i >= 1; i--) {
+        const pId = logData[i][1].toString();
+        const asmId = logData[i][2].toString();
+        if (!submissions[pId]) submissions[pId] = {};
+        if (!submissions[pId][asmId]) {
+          submissions[pId][asmId] = { url: logData[i][3], status: logData[i][4], score: logData[i][7] !== undefined ? logData[i][7] : '' };
+        }
+      }
+    }
+    return { status: 'success', data: { trainees: trainees, assignments: assignments, submissions: submissions } };
+  } catch (e) { return { status: 'error', message: e.message }; }
 }
