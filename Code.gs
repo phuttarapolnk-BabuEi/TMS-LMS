@@ -39,13 +39,13 @@ function processRequest(action, payload) {
       case 'getEvaluationDashboardData': result = getEvaluationDashboardData(); break;
       case 'getRawSpeakerConfig': result = getRawSpeakerConfig(); break;
       case 'saveRawSpeakerConfig': result = saveRawSpeakerConfig(payload.configData); break;
-      case 'getAssessmentConfig': result = getAssessmentConfig(); break; 
       
       // 📌 ระบบภาระงาน (Assignments)
       case 'getRawAssignmentsConfig': result = getRawAssignmentsConfig(); break;
       case 'saveRawAssignmentsConfig': result = saveRawAssignmentsConfig(payload.configData); break;
       case 'getTraineeAssignments': result = getTraineeAssignments(payload.personalId); break;
       case 'submitTraineeAssignment': result = submitTraineeAssignment(payload.personalId, payload.asmId, payload.url); break;
+      case 'cancelTraineeAssignment': result = cancelTraineeAssignment(payload.logId, payload.personalId); break;
       case 'getMentorAssignmentsList': result = getMentorAssignmentsList(payload.mentorId); break;
       case 'evaluateAssignment': result = evaluateAssignment(payload.logId, payload.status, payload.comment, payload.score); break;
       
@@ -377,7 +377,7 @@ function getMentorData(mentorId) {
     const uHeaders = usersData[0];
     const idIdx = uHeaders.indexOf('personal_id'); const nameIdx = uHeaders.indexOf('name');
     const roleIdx = uHeaders.indexOf('role'); const mentorIdx = uHeaders.indexOf('mentor_id');
-    const linkIdx = uHeaders.indexOf('Link_Table'); const areaIdx = uHeaders.indexOf('Area_Service'); 
+    const areaIdx = uHeaders.indexOf('Area_Service'); 
     const clusterIdx = uHeaders.indexOf('Cluster'); const groupIdx = uHeaders.indexOf('group_target'); 
 
     let scheduleConfig = []; const confSheet = ss.getSheetByName('Attendance_Config');
@@ -390,11 +390,6 @@ function getMentorData(mentorId) {
         sMap[dayNo].slots.push({ id: confData[i][3], label: confData[i][4] });
       }
       scheduleConfig = Object.keys(sMap).map(k => sMap[k]);
-    }
-
-    let mentorLink = "";
-    for (let i = 1; i < usersData.length; i++) {
-      if (usersData[i][idIdx].toString().trim() === mentorId.toString().trim()) { mentorLink = linkIdx !== -1 ? usersData[i][linkIdx] : ""; break; }
     }
 
     let myTrainees = new Set(); let myTraineeDetails = {}; let traineesInfo = []; 
@@ -414,7 +409,7 @@ function getMentorData(mentorId) {
       if (myTrainees.has(attId)) { logs.push({ personal_id: attId, name: myTraineeDetails[attId], day_no: attData[i][2], time_slot: attData[i][3], timestamp: attData[i][4], note: attData[i][5] || '' }); }
     }
     logs.reverse();
-    return { status: 'success', data: logs, totalTrainees: myTrainees.size, schedule: scheduleConfig, mentorLink: mentorLink, traineesInfo: traineesInfo };
+    return { status: 'success', data: logs, totalTrainees: myTrainees.size, schedule: scheduleConfig, traineesInfo: traineesInfo };
   } catch (err) { return { status: 'error', message: err.message }; }
 }
 
@@ -454,15 +449,6 @@ function saveRawSpeakerConfig(configData) { const lock = LockService.getScriptLo
 function importQuestionsFromCSV(csvText) { try { const csvData = Utilities.parseCsv(csvText); const ss = SpreadsheetApp.getActiveSpreadsheet(); let sheet = ss.getSheetByName('Questions_Bank') || ss.insertSheet('Questions_Bank'); sheet.clear(); sheet.getRange(1, 1, csvData.length, csvData[0].length).setValues(csvData); return { status: 'success', message: `นำเข้า ${csvData.length - 1} รายการ` }; } catch (err) { return { status: 'error', message: err.message }; } }
 function exportProgressToCSV() { try { const data = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Attendance_Log').getDataRange().getDisplayValues(); let csvString = ""; for (let i = 0; i < data.length; i++) { csvString += data[i].map(cell => '"' + cell.toString().replace(/"/g, '""') + '"').join(",") + "\n"; } return { status: 'success', csvData: csvString, filename: 'TMS.csv' }; } catch (err) { return { status: 'error', message: err.message }; } }
 
-function getAssessmentConfig() {
-  try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Assessment_Config');
-    if (!sheet) { return { status: 'error', message: 'ไม่พบตาราง Assessment_Config' }; }
-    const data = sheet.getDataRange().getDisplayValues();
-    return { status: 'success', data: data };
-  } catch (error) { return { status: 'error', message: error.toString() }; }
-}
-
 // ==========================================
 // 📌 7. ระบบส่งงานและการตรวจประเมิน (Assignments)
 // ==========================================
@@ -483,9 +469,11 @@ function saveRawAssignmentsConfig(configData) {
     let sheet = ss.getSheetByName('Assignments_Config');
     if (!sheet) { 
       sheet = ss.insertSheet('Assignments_Config'); 
-      sheet.appendRow(['asm_id', 'asm_name', 'asm_desc', 'start_datetime', 'end_datetime', 'is_active']); 
+      // 💡 เพิ่มหัวคอลัมน์ rubric_config
+      sheet.appendRow(['asm_id', 'asm_name', 'asm_desc', 'start_datetime', 'end_datetime', 'is_active', 'rubric_config']); 
     }
-    const maxRows = sheet.getMaxRows(); const maxCols = Math.max(sheet.getMaxColumns(), 6);
+    // 💡 ขยายความกว้างการลบ/บันทึกให้ครอบคลุม 7 คอลัมน์
+    const maxRows = sheet.getMaxRows(); const maxCols = Math.max(sheet.getMaxColumns(), 7);
     if (maxRows > 1) sheet.getRange(2, 1, maxRows - 1, maxCols).clearContent(); 
     if (configData && configData.length > 0) sheet.getRange(2, 1, configData.length, configData[0].length).setValues(configData);
     SpreadsheetApp.flush();
@@ -566,6 +554,31 @@ function submitTraineeAssignment(personalId, asmId, url) {
   } catch (e) { return { status: 'error', message: e.message }; } finally { lock.releaseLock(); }
 }
 
+function cancelTraineeAssignment(logId, personalId) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let logSheet = ss.getSheetByName('Assignments_Log');
+    if (!logSheet) return { status: 'error', message: 'ไม่พบฐานข้อมูล' };
+
+    const data = logSheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0].toString() === logId.toString() && data[i][1].toString() === personalId.toString()) {
+        if (data[i][4].toString() === 'รอตรวจ') {
+          logSheet.deleteRow(i + 1);
+          SpreadsheetApp.flush();
+          return { status: 'success', message: 'ยกเลิกการส่งงานเรียบร้อยแล้ว' };
+        } else {
+          return { status: 'error', message: 'ไม่สามารถยกเลิกได้ เนื่องจากวิทยากรได้ตรวจประเมินไปแล้ว' };
+        }
+      }
+    }
+    return { status: 'error', message: 'ไม่พบรายการส่งงานนี้' };
+  } catch (e) { return { status: 'error', message: e.message }; } finally { lock.releaseLock(); }
+}
+
+// 💡 ดึงข้อมูลภาระงาน พร้อมพ่วงเกณฑ์ (Rubrics) ไปให้หน้าเว็บของ Mentor
 function getMentorAssignmentsList(mentorId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -593,6 +606,8 @@ function getMentorAssignmentsList(mentorId) {
     const cNameIdx = cHeaders.indexOf('asm_name');
     const cEndIdx = cHeaders.indexOf('end_datetime');
     const cActIdx = cHeaders.indexOf('is_active');
+    // 💡 หาคอลัมน์ rubric_config (ถ้าไม่มีให้ใช้ index 6 ที่เราตั้งไว้)
+    const cRubricIdx = cHeaders.indexOf('rubric_config') !== -1 ? cHeaders.indexOf('rubric_config') : 6;
 
     let assignments = [];
     for (let i = 1; i < confData.length; i++) {
@@ -600,7 +615,8 @@ function getMentorAssignmentsList(mentorId) {
          assignments.push({
              id: confData[i][cIdIdx].trim(),
              name: cNameIdx !== -1 ? confData[i][cNameIdx].trim() : '',
-             end: cEndIdx !== -1 ? confData[i][cEndIdx].trim() : ''
+             end: cEndIdx !== -1 ? confData[i][cEndIdx].trim() : '',
+             rubric: confData[i][cRubricIdx] || '[]' // 💡 ส่งก้อน JSON เกณฑ์ไปให้หน้าเว็บ
          });
       }
     }
@@ -649,7 +665,7 @@ function evaluateAssignment(logId, status, comment, score) {
   } catch (e) { return { status: 'error', message: e.message }; } finally { lock.releaseLock(); }
 }
 
-// 🏆 ดึง Matrix ของ Admin
+// 🏆 9. ดึง Matrix ของ Admin
 function getAllAssignmentsMatrix() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
