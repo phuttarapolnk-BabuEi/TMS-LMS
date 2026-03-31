@@ -15,7 +15,8 @@ let globalMentorData = [];
 let filteredMentorData = [];
 let mentorChartInstance = null;  
 let mentorCurrentPage = 1;
-let globalMatrixData = null; // สำหรับโหลด Excel/PDF ของ Mentor
+let globalMatrixData = null; // ข้อมูลโหลด Excel/PDF ของ Mentor
+let globalAdminMatrixData = null; // ข้อมูลโหลด Excel ของ Admin
 
 let globalEvalData = null; 
 let preChartInstance = null; 
@@ -130,7 +131,6 @@ async function checkInModal(dayNo, timeSlot, isLate = false) {
   }
 }
 
-// 👨‍🎓 ระบบสอบและประเมิน
 function shuffleArray(array) {
   let currentIndex = array.length, randomIndex;
   while (currentIndex !== 0) {
@@ -246,7 +246,7 @@ function renderSurveyUI(surveyData, targetId, title) {
   }).then((result) => { if (result.isConfirmed) { Swal.fire('สำเร็จ!', result.value.message, 'success'); } });
 }
 
-// 👨‍🎓 ระบบส่งภาระงาน
+// 📌 ระบบจัดการภาระงานสำหรับผู้เข้าอบรม (Trainee)
 async function loadTraineeAssignments() {
   const tbody = document.getElementById('trainee-assignments-body'); if(!tbody) return;
   tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังดึงข้อมูล...</td></tr>';
@@ -267,16 +267,20 @@ async function loadTraineeAssignments() {
 
               if(item.status === 'รอส่งงาน') {
                   statusBadge = isLate ? '<span class="badge bg-danger shadow-sm">ส่งงานช้า</span>' : '<span class="badge border border-secondary text-secondary">รอส่งงาน</span>';
-                  actionHtml = `<div class="input-group input-group-sm shadow-sm"><span class="input-group-text bg-white"><i class="bi bi-link-45deg"></i></span><input type="url" id="url-${item.asm_id}" class="form-control border-start-0" placeholder="วางลิงก์ผลงานที่นี่..."><button class="btn btn-primary fw-bold" onclick="submitWork('${item.asm_id}')">ส่งงาน</button></div>`;
+                  actionHtml = `<div class="input-group input-group-sm shadow-sm"><span class="input-group-text bg-white"><i class="bi bi-link-45deg"></i></span><input type="url" id="url-${item.asm_id}" class="form-control border-start-0" placeholder="วางลิงก์ผลงานที่นี่..."><button class="btn btn-primary fw-bold" onclick="submitWork('${item.asm_id}', '${item.asm_name}')">ส่งงาน</button></div>`;
               } else if(item.status === 'รอตรวจ') {
-                  statusBadge = '<span class="badge bg-warning text-dark shadow-sm">รอตรวจ</span>'; actionHtml = `<a href="${item.url}" target="_blank" class="text-primary text-decoration-underline text-truncate d-inline-block" style="max-width: 250px;">${item.url}</a>`;
+                  statusBadge = '<span class="badge bg-warning text-dark shadow-sm">รอตรวจ</span>'; 
+                  actionHtml = `<div class="d-flex flex-column gap-2 text-start">
+                      <a href="${item.url}" target="_blank" class="text-primary text-decoration-underline text-truncate d-inline-block" style="max-width: 250px;"><i class="bi bi-box-arrow-up-right"></i> เปิดดูผลงานที่ส่งไป</a>
+                      <button class="btn btn-sm btn-outline-danger py-0" style="font-size:0.75rem; width:fit-content;" onclick="cancelSubmission('${item.log_id}')"><i class="bi bi-x-circle"></i> ยกเลิกการส่ง (เพื่อส่งใหม่)</button>
+                  </div>`;
               } else if(item.status === 'ดี') {
                   statusBadge = '<span class="badge bg-success shadow-sm">ดี</span>'; actionHtml = `<a href="${item.url}" target="_blank" class="text-success text-decoration-underline d-inline-block">${item.url}</a>`;
               } else if(item.status === 'ผ่าน') {
                   statusBadge = '<span class="badge bg-info text-dark shadow-sm">ผ่าน</span>'; actionHtml = `<a href="${item.url}" target="_blank" class="text-info text-decoration-underline d-inline-block">${item.url}</a>`;
               } else if(item.status === 'แก้ไข') {
                   statusBadge = isLate ? '<span class="badge bg-danger shadow-sm">ส่งงานช้า (แก้)</span>' : '<span class="badge bg-danger shadow-sm">แก้ไข</span>';
-                  actionHtml = `<div class="d-flex flex-column gap-2"><a href="${item.url}" target="_blank" class="text-danger small text-decoration-underline text-truncate d-inline-block text-start"><i class="bi bi-clock-history"></i> งานเดิม: ${item.url}</a><div class="input-group input-group-sm shadow-sm border border-danger rounded"><span class="input-group-text bg-white text-danger"><i class="bi bi-exclamation-circle"></i></span><input type="url" id="url-${item.asm_id}" class="form-control border-start-0" placeholder="วางลิงก์แก้ไขใหม่..."><button class="btn btn-danger fw-bold" onclick="submitWork('${item.asm_id}')">ส่งแก้</button></div></div>`;
+                  actionHtml = `<div class="d-flex flex-column gap-2"><a href="${item.url}" target="_blank" class="text-danger small text-decoration-underline text-truncate d-inline-block text-start"><i class="bi bi-clock-history"></i> งานเดิมที่ถูกตีกลับ: ${item.url}</a><div class="input-group input-group-sm shadow-sm border border-danger rounded"><span class="input-group-text bg-white text-danger"><i class="bi bi-exclamation-circle"></i></span><input type="url" id="url-${item.asm_id}" class="form-control border-start-0" placeholder="วางลิงก์แก้ไขใหม่..."><button class="btn btn-danger fw-bold" onclick="submitWork('${item.asm_id}', '${item.asm_name}')">ส่งแก้</button></div></div>`;
               }
               let commentHtml = item.comment ? `<div class="text-start small text-secondary">${item.comment}</div>` : '<span class="text-muted">-</span>';
               let descHtml = item.asm_desc ? `<div class="text-muted small mt-1 p-2 bg-light rounded border" style="line-height: 1.4;"><i class="bi bi-info-circle text-info"></i> ${item.asm_desc.replace(/\n/g, '<br>')}</div>` : '';
@@ -286,20 +290,59 @@ async function loadTraineeAssignments() {
   } catch (e) { console.error(e); }
 }
 
-async function submitWork(asmId) {
+async function submitWork(asmId, asmName) {
   const urlInput = document.getElementById(`url-${asmId}`); const url = urlInput.value.trim();
   if(!url) return Swal.fire('แจ้งเตือน', 'กรุณาวางลิงก์ผลงานก่อนกดส่ง', 'warning');
   if(!url.startsWith('http')) return Swal.fire('แจ้งเตือน', 'กรุณาระบุ URL ให้ถูกต้อง (ต้องมี http หรือ https)', 'warning');
-  Swal.fire({ title: 'กำลังบันทึกงาน...', didOpen: () => Swal.showLoading() });
-  const res = await callAPI('submitTraineeAssignment', { personalId: currentUser.personal_id, asmId: asmId, url: url });
-  if(res.status === 'success') { Swal.fire('สำเร็จ', 'ส่งภาระงานเรียบร้อยแล้ว รอวิทยากรตรวจประเมินนะครับ', 'success'); loadTraineeAssignments(); } else { Swal.fire('ข้อผิดพลาด', res.message, 'error'); }
+
+  let embedUrl = url; 
+  if (embedUrl.includes('drive.google.com/file/d/')) { embedUrl = embedUrl.replace(/\/view.*$/, '/preview'); }
+
+  const { isConfirmed } = await Swal.fire({
+      title: `<i class="bi bi-cloud-arrow-up text-primary"></i> ยืนยันการส่งภาระงาน`, width: '800px',
+      html: `
+        <div class="text-start">
+           <p class="fw-bold text-dark mb-1">ภาระงาน: <span class="text-primary">${asmName}</span></p>
+           <p class="small text-danger fw-bold"><i class="bi bi-exclamation-triangle"></i> คำเตือน: ท่านสามารถกดส่งงานได้เพียง 1 ครั้งเท่านั้น กรุณาตรวจสอบความถูกต้องของไฟล์ด้านล่างก่อนกดยืนยัน</p>
+           <div class="card shadow-sm border-0 bg-light mt-3">
+              <div class="card-body p-0 rounded-3 overflow-hidden" style="border: 1px solid #dee2e6;">
+                 <iframe src="${embedUrl}" width="100%" height="400px" style="border:none;" allowfullscreen></iframe>
+              </div>
+              <div class="card-footer bg-white border-0 text-center py-2"><a href="${url}" target="_blank" class="text-muted small text-decoration-none"><i class="bi bi-box-arrow-up-right"></i> ถ้าไฟล์ไม่แสดง กดเปิดดูในแท็บใหม่ที่นี่</a></div>
+           </div>
+        </div>
+      `,
+      focusCancel: true, showCancelButton: true, confirmButtonText: 'ยืนยันและส่งงาน', cancelButtonText: 'กลับไปแก้ไข', customClass: { confirmButton: 'btn btn-primary px-4 rounded-pill shadow-sm fw-bold', cancelButton: 'btn btn-secondary px-4 rounded-pill shadow-sm' }
+  });
+
+  if (isConfirmed) {
+      Swal.fire({ title: 'กำลังบันทึกงาน...', didOpen: () => Swal.showLoading() });
+      const res = await callAPI('submitTraineeAssignment', { personalId: currentUser.personal_id, asmId: asmId, url: url });
+      if(res.status === 'success') { Swal.fire('สำเร็จ', 'ส่งภาระงานเรียบร้อยแล้ว รอวิทยากรตรวจประเมินนะครับ', 'success'); loadTraineeAssignments(); } 
+      else { Swal.fire('ข้อผิดพลาด', res.message, 'error'); }
+  }
+}
+
+async function cancelSubmission(logId) {
+    const { isConfirmed } = await Swal.fire({
+        title: 'ต้องการยกเลิกการส่งงาน?',
+        text: "หากยกเลิก งานนี้จะกลับไปอยู่ในสถานะ 'รอส่งงาน' และท่านต้องแนบลิงก์ส่งใหม่อีกครั้ง ยืนยันหรือไม่?",
+        icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', cancelButtonColor: '#6c757d', confirmButtonText: 'ยืนยันการยกเลิก', cancelButtonText: 'ปิด'
+    });
+
+    if (isConfirmed) {
+        Swal.fire({ title: 'กำลังยกเลิก...', didOpen: () => Swal.showLoading() });
+        const res = await callAPI('cancelTraineeAssignment', { logId: logId, personalId: currentUser.personal_id });
+        if(res.status === 'success') { Swal.fire({ icon: 'success', title: 'สำเร็จ', text: res.message, timer: 1500, showConfirmButton: false }); loadTraineeAssignments(); } 
+        else { Swal.fire('ไม่สามารถยกเลิกได้', res.message, 'error'); loadTraineeAssignments(); }
+    }
 }
 
 // ==========================================
 // 👨‍🏫 2. ระบบวิทยากรพี่เลี้ยง (Mentor View)
 // ==========================================
 async function fetchMentorData() {
-  const tbody = document.getElementById('mentor-table-body'); const tTraineeBody = document.getElementById('mentor-trainees-body'); const linkContainer = document.getElementById('mentor-link-container');
+  const tbody = document.getElementById('mentor-table-body'); const tTraineeBody = document.getElementById('mentor-trainees-body');
   if(tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังดึงข้อมูล...</td></tr>';
   if(tTraineeBody) tTraineeBody.innerHTML = `<tr><td colspan="5" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังโหลดข้อมูลกลุ่ม...</td></tr>`;
   
@@ -307,7 +350,6 @@ async function fetchMentorData() {
     const res = await callAPI('getMentorData', { mentorId: currentUser.personal_id });
     if (res.status === 'success') { 
       globalMentorData = res.data; 
-      if (linkContainer) { if (res.mentorLink && res.mentorLink.trim() !== '') { linkContainer.innerHTML = `<a href="${res.mentorLink}" target="_blank" class="btn btn-primary rounded-pill shadow-sm fw-bold px-4"><i class="bi bi-box-arrow-up-right"></i> เปิดลิงก์บันทึกคะแนน</a>`; } else { linkContainer.innerHTML = `<span class="badge bg-light text-muted border py-2 px-3 fw-normal">ยังไม่มีลิงก์บันทึกคะแนน</span>`; } }
 
       if (tTraineeBody) {
          const thead = tTraineeBody.closest('table').querySelector('thead'); let totalSlots = 0;
@@ -378,16 +420,16 @@ function renderMentorPaginatedTable() {
 }
 function changeMentorPage(page) { mentorCurrentPage = page; renderMentorPaginatedTable(); }
 
-// 👨‍🏫 ระบบตรวจงาน Matrix + ให้คะแนน
+// 👨‍🏫 ระบบตรวจงาน Matrix + ให้คะแนน (มีระบบตัวคูณ)
 async function loadMentorAssignments() {
   const tbody = document.getElementById('mentor-assignments-body'); if(!tbody) return;
-  const thead = tbody.closest('table').querySelector('thead');
+  const thead = document.getElementById('mentor-assignments-head');
   tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังดึงข้อมูล...</td></tr>';
   
   try {
     const res = await callAPI('getMentorAssignmentsList', { mentorId: currentUser.personal_id });
     if(res.status === 'success') {
-        globalMatrixData = res.data; // 💡 เก็บค่าให้ปุ่มโหลด Excel/PDF
+        globalMatrixData = res.data; 
         const { trainees, assignments, submissions } = res.data;
         
         let theadHtml = `<tr><th style="width: 60px;">ลำดับ</th><th class="text-start" style="width: 220px;">ชื่อ-สกุล</th>`;
@@ -421,7 +463,7 @@ async function loadMentorAssignments() {
 
                        rowHtml += `<td class="align-middle border-start px-3">
                            <div class="mb-2">${statusBadge} ${lateBadge} ${scoreBadge}</div>
-                           <button class="btn btn-sm btn-primary rounded-pill shadow-sm text-white fw-bold w-100" style="font-size:0.8rem;" onclick="openGradeModal('${sub.logId}', '${trainee.name}', '${sub.status}', \`${sub.comment || ''}\`, '${sub.url}', '${sub.score || ''}')">
+                           <button class="btn btn-sm btn-primary rounded-pill shadow-sm text-white fw-bold w-100" style="font-size:0.8rem;" onclick="openGradeModal('${sub.logId}', '${trainee.name}', '${sub.status}', \`${sub.comment || ''}\`, '${sub.url}', '${sub.score || ''}', '${asm.id}')">
                                <i class="bi bi-search"></i> ตรวจและให้คะแนน
                            </button>
                        </td>`;
@@ -434,9 +476,46 @@ async function loadMentorAssignments() {
   } catch(e) { console.error(e); }
 }
 
-async function openGradeModal(logId, name, currentStatus, currentComment, workUrl, currentScore) {
+// 💡 ฟอร์มตรวจงานของ Mentor (ปรับ UI ให้สะอาดตา ซ่อนตัวคูณไว้คำนวณหลังบ้าน)
+async function openGradeModal(logId, name, currentStatus, currentComment, workUrl, currentScore, asmId) {
   let embedUrl = workUrl; 
   if (embedUrl && embedUrl.includes('drive.google.com/file/d/')) { embedUrl = embedUrl.replace(/\/view.*$/, '/preview'); }
+
+  const asmInfo = globalMatrixData.assignments.find(a => a.id === asmId);
+  let rubrics = [];
+  if(asmInfo && asmInfo.rubric) { try { rubrics = JSON.parse(asmInfo.rubric); } catch(e) {} }
+
+  let scoreFormHtml = '';
+  if (rubrics.length > 0) {
+      scoreFormHtml += `<div class="bg-white p-3 rounded-4 shadow-sm border border-success mb-4">
+          <label class="form-label fw-bold text-success mb-3"><i class="bi bi-ui-checks-grid"></i> เกณฑ์การให้คะแนนย่อย</label>
+          <div id="rubric-inputs-container">`;
+      rubrics.forEach((r, i) => {
+          // 💡 ปรับคำอธิบายให้คลีนขึ้นตามที่พี่ต้องการ และเปลี่ยน Placeholder เป็นคำว่า "คะแนน"
+          scoreFormHtml += `
+            <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+               <span class="small text-muted text-start" style="line-height: 1.2;">
+                  <span class="fw-bold text-dark">${r.name}</span><br>
+                  <small class="text-primary">(ประเมินจากคะแนนตั้งแต่ 1 - ${r.max_score})</small>
+               </span>
+               <input type="number" class="form-control text-center rubric-input shadow-sm border-primary fw-bold" style="width: 80px;" 
+                      data-max="${r.max_score}" data-weight="${r.weight_percent}" 
+                      placeholder="คะแนน" min="0" max="${r.max_score}" oninput="autoCalculateScore()">
+            </div>`;
+      });
+      scoreFormHtml += `</div>
+          <div class="d-flex justify-content-between align-items-center fw-bold fs-5 text-success mt-3">
+             <span>รวมคะแนนสุทธิ:</span>
+             <span id="display-total-score">${currentScore || '0.00'}</span>
+          </div>
+          <input type="hidden" id="swal-score" value="${currentScore || ''}">
+      </div>`;
+  } else {
+      scoreFormHtml = `
+          <label class="form-label fw-bold text-success"><i class="bi bi-123"></i> ให้คะแนน (Score)</label>
+          <input type="number" id="swal-score" class="form-control form-control-lg mb-4 shadow-sm text-center fw-bold text-success" placeholder="ระบุคะแนนรวม..." value="${currentScore || ''}">
+      `;
+  }
 
   const { value: formValues } = await Swal.fire({
       title: `<i class="bi bi-file-earmark-check text-primary"></i> ตรวจประเมินผลงาน`, width: '90%',
@@ -447,19 +526,18 @@ async function openGradeModal(logId, name, currentStatus, currentComment, workUr
                  <div class="card-body p-0 rounded-3 overflow-hidden" style="border: 1px solid #dee2e6;">
                     <iframe src="${embedUrl}" width="100%" height="600px" style="border:none;" allowfullscreen></iframe>
                  </div>
-                 <div class="card-footer bg-white border-0 text-center py-2"><a href="${workUrl}" target="_blank" class="text-muted small text-decoration-none"><i class="bi bi-box-arrow-up-right"></i> ไฟล์ไม่แสดงผลใช่ไหม? กดเปิดในหน้าต่างใหม่ที่นี่</a></div>
+                 <div class="card-footer bg-white border-0 text-center py-2"><a href="${workUrl}" target="_blank" class="text-muted small text-decoration-none"><i class="bi bi-box-arrow-up-right"></i> เปิดงานในหน้าต่างใหม่คลิกที่นี่</a></div>
               </div>
            </div>
            
            <div class="col-lg-4">
               <div class="card shadow-sm border-0 h-100 border-top border-primary border-4">
-                 <div class="card-body p-4">
-                    <div class="mb-4 text-center"><span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 fs-6 rounded-pill">เจ้าของผลงาน: ${name}</span></div>
+                 <div class="card-body p-4 overflow-auto" style="max-height: 600px;">
+                    <div class="mb-4 text-center"><span class="badge bg-primary bg-opacity-10 text-primary border border-primary px-3 py-2 fs-6 rounded-pill">ผู้ส่ง: ${name}</span></div>
                     
-                    <label class="form-label fw-bold text-success"><i class="bi bi-123"></i> ให้คะแนน (Score)</label>
-                    <input type="number" id="swal-score" class="form-control form-control-lg mb-4 shadow-sm text-center fw-bold text-success" placeholder="ระบุคะแนนตัวเลข" value="${currentScore || ''}">
+                    ${scoreFormHtml}
 
-                    <label class="form-label fw-bold text-primary"><i class="bi bi-award"></i> ระดับคุณภาพ</label>
+                    <label class="form-label fw-bold text-primary mt-2"><i class="bi bi-award"></i> ระดับคุณภาพ</label>
                     <select id="swal-status" class="form-select form-select-lg mb-4 shadow-sm text-center fw-bold">
                         <option value="รอตรวจ" ${currentStatus==='รอตรวจ'?'selected':''}>⏳ รอตรวจ (Pending)</option>
                         <option value="ดี" ${currentStatus==='ดี'?'selected':''}>🌟 ดี (Good)</option>
@@ -468,7 +546,7 @@ async function openGradeModal(logId, name, currentStatus, currentComment, workUr
                     </select>
                     
                     <label class="form-label fw-bold text-primary"><i class="bi bi-chat-text"></i> ข้อเสนอแนะ (Feedback)</label>
-                    <textarea id="swal-comment" class="form-control shadow-sm" rows="5" placeholder="พิมพ์คำแนะนำ หรือสิ่งที่ต้องแก้ไขที่นี่...">${currentComment}</textarea>
+                    <textarea id="swal-comment" class="form-control shadow-sm" rows="4" placeholder="พิมพ์คำแนะนำ หรือสิ่งที่ต้องแก้ไขที่นี่...">${currentComment}</textarea>
                  </div>
               </div>
            </div>
@@ -481,19 +559,35 @@ async function openGradeModal(logId, name, currentStatus, currentComment, workUr
   if (formValues) {
       Swal.fire({ title: 'กำลังบันทึกข้อมูล...', didOpen: () => Swal.showLoading() });
       const res = await callAPI('evaluateAssignment', { logId: logId, status: formValues.status, comment: formValues.comment, score: formValues.score });
-      if(res.status === 'success') { Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', text: 'บันทึกคะแนนและผลประเมินเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false }); loadMentorAssignments(); } 
+      if(res.status === 'success') { Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', text: 'บันทึกคะแนนเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false }); loadMentorAssignments(); } 
       else { Swal.fire('ข้อผิดพลาด', res.message, 'error'); }
   }
+}
+
+function autoCalculateScore() {
+    const inputs = document.querySelectorAll('.rubric-input');
+    let totalWeighted = 0;
+    inputs.forEach(input => {
+        let raw = parseFloat(input.value) || 0;
+        let max = parseFloat(input.getAttribute('data-max')) || 1; 
+        let weightMultiplier = parseFloat(input.getAttribute('data-weight')) || 0;
+        
+        if(raw > max) { raw = max; input.value = max; } 
+        if(raw < 0) { raw = 0; input.value = 0; } 
+        
+        let calculated = raw * weightMultiplier; 
+        totalWeighted += calculated;
+    });
+    document.getElementById('display-total-score').innerText = totalWeighted.toFixed(2);
+    document.getElementById('swal-score').value = totalWeighted.toFixed(2);
 }
 
 function exportMentorScoresExcel() {
    if(!globalMatrixData || !globalMatrixData.trainees || globalMatrixData.trainees.length === 0) return Swal.fire('แจ้งเตือน', 'ไม่มีข้อมูลให้ส่งออก', 'warning');
    const { trainees, assignments, submissions } = globalMatrixData;
    
-   let exportData = [];
-   let header = ["ลำดับ", "เลขประจำตัว", "ชื่อ - นามสกุล"];
-   assignments.forEach(a => header.push(a.name)); header.push("รวมคะแนน");
-   exportData.push(header);
+   let exportData = []; let header = ["ลำดับ", "เลขประจำตัว", "ชื่อ - นามสกุล"];
+   assignments.forEach(a => header.push(a.name)); header.push("รวมคะแนน"); exportData.push(header);
 
    trainees.forEach((t, idx) => {
       let row = [idx+1, t.id, t.name]; let total = 0;
@@ -513,8 +607,7 @@ function exportMentorScoresPDF() {
   <style>body { font-family: 'Sarabun', sans-serif; padding: 20px; color: #333; } h2 { text-align: center; margin-bottom: 20px; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; } th, td { border: 1px solid #999; padding: 10px; text-align: center; } th { background-color: #f2f2f2; font-weight: 600; } .text-start { text-align: left; } .text-end { text-align: right; } .total-col { background-color: #e9ecef; font-weight: bold; }</style></head><body>`;
   
   html += `<h2>สรุปคะแนนภาระงานของผู้เข้าอบรม</h2><table><thead><tr><th>ลำดับ</th><th>เลขประจำตัว</th><th class="text-start">ชื่อ - นามสกุล</th>`;
-  assignments.forEach(a => html += `<th>${a.name}</th>`);
-  html += `<th class="total-col">รวมคะแนน</th></tr></thead><tbody>`;
+  assignments.forEach(a => html += `<th>${a.name}</th>`); html += `<th class="total-col">รวมคะแนน</th></tr></thead><tbody>`;
 
   trainees.forEach((t, idx) => {
      let totalScore = 0; html += `<tr><td>${idx+1}</td><td>${t.id}</td><td class="text-start">${t.name}</td>`;
@@ -673,23 +766,121 @@ function renderEvaluationDetail() {
   container.innerHTML = html;
 }
 
+// 💡 การดึงลิงก์ Assessment จากตาราง Users
 async function fetchAssessmentLinks() {
   const tbody = document.getElementById('assessment-links-body'); if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังดึงข้อมูล...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังดึงข้อมูลลิงก์จากรายชื่อผู้ใช้...</td></tr>';
+  
   try {
     const res = await callAPI('getAssessmentConfig'); 
     if (res.status === 'success') {
       tbody.innerHTML = ''; 
-      if (!res.data || res.data.length === 0) { tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-4">ไม่พบข้อมูลในระบบ</td></tr>'; return; }
-      res.data.forEach((row) => {
-        if(row[0] === "กลุ่ม" || row[0] === "" || row[0] === "URL") return; 
-        tbody.innerHTML += `<tr><td class="fw-bold text-secondary fs-6 align-middle">กลุ่มที่ ${row[0]}</td><td class="text-start align-middle"><a href="${row[1]}" target="_blank" class="btn btn-sm btn-primary rounded-pill px-4 shadow-sm fw-bold" style="color: #ffffff !important;"><i class="bi bi-file-earmark-spreadsheet me-1"></i> เข้าสู่ระบบจัดการข้อมูล</a></td></tr>`;
-      });
-    } else { tbody.innerHTML = `<tr><td colspan="2" class="text-danger text-center py-4">ข้อผิดพลาด: ${res.message}</td></tr>`; }
-  } catch (error) { tbody.innerHTML = `<tr><td colspan="2" class="text-danger text-center py-4">ขัดข้องทางเทคนิค</td></tr>`; }
+      if (!res.data || res.data.length <= 1) { 
+        tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-4">ยังไม่ได้ระบุลิงก์ในคอลัมน์ Link_Table ของตาราง Users</td></tr>'; 
+        return; 
+      }
+      
+      for (let i = 1; i < res.data.length; i++) {
+        const row = res.data[i]; const group = row[0]; const url = row[1]; const name = row[2];
+        tbody.innerHTML += `
+          <tr>
+            <td class="fw-bold text-secondary align-middle">
+              <div class="fs-6">กลุ่มที่ ${group}</div>
+              <small class="text-primary fw-normal"><i class="bi bi-person-circle"></i> ${name}</small>
+            </td>
+            <td class="text-start align-middle">
+              <a href="${url}" target="_blank" class="btn btn-sm btn-primary rounded-pill px-4 shadow-sm fw-bold" style="color: #ffffff !important;">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i> เข้าสู่ระบบจัดการข้อมูล
+              </a>
+            </td>
+          </tr>`;
+      }
+    } else { tbody.innerHTML = `<tr><td colspan="2" class="text-center py-4 text-danger">ข้อผิดพลาด: ${res.message}</td></tr>`; }
+  } catch (error) { console.error(error); tbody.innerHTML = `<tr><td colspan="2" class="text-center py-4 text-danger">ขัดข้องทางเทคนิค</td></tr>`; }
 }
 
-// ⚙️ Admin: จัดการระบบ (CRUD)
+// 🏆 ฟังก์ชันสรุปคะแนน Matrix สำหรับ Admin (ปรับ UI เหมือน Mentor)
+async function loadAdminAssignmentsMatrix() {
+  const tbody = document.getElementById('admin-matrix-body'); if(!tbody) return;
+  const thead = document.getElementById('admin-matrix-head');
+  tbody.innerHTML = '<tr><td colspan="20" class="text-center py-4"><div class="spinner-border spinner-border-sm text-warning"></div> กำลังดึงข้อมูลคะแนน...</td></tr>';
+  
+  try {
+    const res = await callAPI('getAllAssignmentsMatrix');
+    if(res.status === 'success') {
+        globalAdminMatrixData = res.data;
+        const { trainees, assignments, submissions } = res.data;
+        
+        let theadHtml = `<tr><th style="width: 60px;">ลำดับ</th><th class="text-start" style="width: 220px;">ชื่อ-สกุล</th>`;
+        assignments.forEach(asm => { 
+            theadHtml += `<th style="min-width: 100px;" class="text-secondary">${asm.name}</th>`; 
+        });
+        theadHtml += `<th class="bg-light fw-bold text-dark border-start">รวมคะแนน</th></tr>`; 
+        thead.innerHTML = theadHtml;
+
+        tbody.innerHTML = '';
+        if(trainees.length === 0) { 
+            tbody.innerHTML = `<tr><td colspan="${2 + assignments.length}" class="text-center py-4 text-muted">ไม่มีข้อมูลผู้เข้าอบรม</td></tr>`; return; 
+        }
+        
+        trainees.forEach((trainee, index) => {
+            let totalScore = 0;
+            let rowHtml = `<tr>
+                <td class="text-muted fw-bold align-middle">${index + 1}</td>
+                <td class="text-start align-middle">
+                    <span class="fw-bold text-secondary">${trainee.name}</span><br>
+                    <small class="text-muted fw-normal"><code>${trainee.id}</code></small>
+                </td>`;
+            
+            assignments.forEach(asm => {
+                const sub = submissions[trainee.id] && submissions[trainee.id][asm.id];
+                if(sub) {
+                    const score = parseFloat(sub.score) || 0;
+                    totalScore += score;
+                    let statusColor = sub.status === 'ผ่าน' || sub.status === 'ดี' ? 'text-success' : (sub.status === 'แก้ไข' ? 'text-danger' : 'text-warning');
+                    rowHtml += `<td class="align-middle border-start">
+                        <div class="fw-bold ${score > 0 ? 'text-primary fs-6' : statusColor}">${score > 0 ? score : sub.status}</div>
+                    </td>`;
+                } else { 
+                    rowHtml += `<td class="align-middle border-start text-muted small">-</td>`; 
+                }
+            });
+            rowHtml += `<td class="align-middle bg-light fw-bold text-dark border-start fs-6">${totalScore}</td></tr>`; 
+            tbody.innerHTML += rowHtml;
+        });
+    } else { 
+        tbody.innerHTML = `<tr><td colspan="20" class="text-center py-4 text-danger">ข้อผิดพลาด: ${res.message}</td></tr>`; 
+    }
+  } catch(e) { console.error(e); }
+}
+
+function exportAdminMatrixExcel() {
+   if(!globalAdminMatrixData || !globalAdminMatrixData.trainees || globalAdminMatrixData.trainees.length === 0) return Swal.fire('แจ้งเตือน', 'ไม่มีข้อมูลให้ส่งออก', 'warning');
+   const { trainees, assignments, submissions } = globalAdminMatrixData;
+   
+   let exportData = [];
+   let header = ["ลำดับ", "เลขประจำตัว", "ชื่อ - นามสกุล"];
+   assignments.forEach(a => header.push(a.name)); header.push("รวมคะแนน");
+   exportData.push(header);
+
+   trainees.forEach((t, idx) => {
+      let row = [idx+1, t.id, t.name]; 
+      let total = 0;
+      assignments.forEach(a => { 
+          const sub = submissions[t.id] && submissions[t.id][a.id]; 
+          const score = sub && sub.score ? parseFloat(sub.score) : 0; 
+          total += score; 
+          row.push(score || 0); 
+      });
+      row.push(total); exportData.push(row);
+   });
+
+   const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(exportData);
+   XLSX.utils.book_append_sheet(wb, ws, "Matrix_Scores"); 
+   XLSX.writeFile(wb, `สรุปคะแนนภาระงานภาพรวม_${new Date().getTime()}.xlsx`);
+}
+
+// ⚙️ Admin CRUD (การตั้งค่า)
 function handleImportCSV() {
   const file = document.getElementById('csvFileInput').files[0];
   if (!file) return Swal.fire('แจ้งเตือน', 'กรุณาเลือกไฟล์', 'warning');
@@ -702,6 +893,79 @@ function handleImportCSV() {
   reader.readAsText(file, 'UTF-8');
 }
 
+// 🌟 ตัวจัดการเกณฑ์ประเมิน (ระบบ "ตัวคูณน้ำหนัก")
+function openRubricManager(btn) {
+    const tr = btn.closest('tr');
+    const asmName = tr.querySelector('.asm-name').value || 'ภาระงานใหม่';
+    const hiddenInput = tr.querySelector('.asm-rubric');
+    let rubrics = []; try { rubrics = JSON.parse(hiddenInput.value); } catch(e) {}
+
+    let html = `
+    <div class="text-start" style="font-size:0.95rem;">
+        <h6 class="fw-bold text-primary mb-3"><i class="bi bi-ui-checks-grid"></i> กำหนดเกณฑ์ของ: ${asmName}</h6>
+        <div class="alert alert-info small py-2 d-flex align-items-center"><i class="bi bi-info-circle-fill fs-5 me-2"></i> กำหนด "คะแนนดิบเต็ม" และ "ตัวคูณ" (ระบบจะนำคะแนนดิบ x ตัวคูณ = คะแนนจริง)</div>
+        <div class="table-responsive">
+            <table class="table table-sm text-center align-middle" id="rubric-table">
+                <thead class="table-light"><tr><th class="text-start">ชื่อเกณฑ์/ประเด็นพิจารณา</th><th style="width: 100px;">คะแนนดิบเต็ม</th><th style="width: 120px;">ตัวคูณ<br><small>(น้ำหนัก)</small></th><th style="width: 50px;">ลบ</th></tr></thead>
+                <tbody id="rubric-tbody">
+    `;
+    if(rubrics.length === 0) { html += getRubricRowHtml('', '', ''); } else { rubrics.forEach(r => { html += getRubricRowHtml(r.name, r.max_score, r.weight_percent); }); }
+    html += `
+                </tbody>
+                <tfoot><tr class="bg-light"><td colspan="2" class="text-end fw-bold">คะแนนรวมสุทธิของงานชิ้นนี้:</td><td class="fs-5 fw-bold text-primary" id="rubric-total-weight">0</td><td></td></tr></tfoot>
+            </table>
+        </div>
+        <button class="btn btn-sm btn-outline-success rounded-pill shadow-sm fw-bold px-3 mt-2" onclick="addRubricRow()"><i class="bi bi-plus-circle"></i> เพิ่มประเด็นพิจารณา</button>
+    </div>`;
+
+    Swal.fire({
+        html: html, width: '750px', showCancelButton: true, confirmButtonText: '<i class="bi bi-save"></i> บันทึกเกณฑ์', cancelButtonText: 'ยกเลิก',
+        customClass: { confirmButton: 'btn btn-primary px-4 rounded-pill fw-bold shadow-sm', cancelButton: 'btn btn-secondary px-4 rounded-pill shadow-sm' },
+        didOpen: () => { calculateTotalWeight(); },
+        preConfirm: () => {
+            const rows = document.querySelectorAll('#rubric-tbody tr');
+            let newRubrics = []; let totalW = 0;
+            for(let r of rows) {
+                const name = r.querySelector('.r-name').value.trim();
+                const max = parseFloat(r.querySelector('.r-max').value) || 0;
+                const w = parseFloat(r.querySelector('.r-weight').value) || 0; // w ในที่นี้คือ ตัวคูณ
+                if(name) { newRubrics.push({ id: 'C'+Math.floor(Math.random()*10000), name: name, max_score: max, weight_percent: w }); totalW += (max * w); }
+            }
+            if(newRubrics.length > 0 && totalW <= 0) { Swal.showValidationMessage(`คะแนนรวมของงานนี้ต้องมากกว่า 0`); return false; }
+            return newRubrics;
+        }
+    }).then((result) => {
+        if(result.isConfirmed) {
+            hiddenInput.value = JSON.stringify(result.value);
+            const count = result.value.length;
+            btn.innerHTML = count > 0 ? `<i class="bi bi-list-check"></i> ${count} เกณฑ์` : `<i class="bi bi-list-check"></i> ตั้งค่าเกณฑ์`;
+            btn.className = count > 0 ? 'btn btn-sm btn-primary text-white rounded-pill shadow-sm fw-bold w-100' : 'btn btn-sm btn-outline-primary rounded-pill shadow-sm fw-bold w-100';
+            const saveBtn = btn.closest('.card-body').previousElementSibling.querySelector('.btn-success');
+            if(saveBtn) saveBtn.classList.add('btn-warning');
+        }
+    });
+}
+
+function getRubricRowHtml(name, max, weight) {
+    return `<tr>
+        <td><input type="text" class="form-control form-control-sm r-name shadow-sm" placeholder="เช่น ความถูกต้องของเนื้อหา..." value="${name}"></td>
+        <td><input type="number" class="form-control form-control-sm r-max text-center shadow-sm fw-bold text-primary" placeholder="เช่น 4" value="${max}" oninput="calculateTotalWeight()"></td>
+        <td><input type="number" class="form-control form-control-sm r-weight text-center shadow-sm fw-bold text-success" placeholder="เช่น 1.5" value="${weight}" oninput="calculateTotalWeight()" step="0.1"></td>
+        <td><button class="btn btn-sm btn-outline-danger border-0" onclick="this.closest('tr').remove(); calculateTotalWeight();"><i class="bi bi-trash3-fill"></i></button></td>
+    </tr>`;
+}
+
+function calculateTotalWeight() {
+    const rows = document.querySelectorAll('#rubric-tbody tr'); let total = 0;
+    rows.forEach(r => {
+        const max = parseFloat(r.querySelector('.r-max').value) || 0;
+        const weight = parseFloat(r.querySelector('.r-weight').value) || 0;
+        total += (max * weight);
+    });
+    const totalEl = document.getElementById('rubric-total-weight');
+    if(totalEl) { totalEl.innerText = total; } 
+}
+
 async function loadAssignmentsConfigToUI() {
   const tbody = document.getElementById('asm-config-table-body'); if(!tbody) return;
   const res = await callAPI('getRawAssignmentsConfig');
@@ -710,6 +974,11 @@ async function loadAssignmentsConfigToUI() {
     const formatDT = (dtStr) => { if(!dtStr) return ""; let d = new Date(dtStr); if(isNaN(d.getTime())) { d = new Date(dtStr.replace(" ", "T")); if(isNaN(d.getTime())) return ""; } const pad = (n) => n.toString().padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
     res.data.forEach(row => {
       const isChecked = row[5] && row[5].toString().toUpperCase() === 'TRUE' ? 'checked' : '';
+      const rubricData = row[6] ? row[6] : "[]";
+      let rCount = 0; try { rCount = JSON.parse(rubricData).length; } catch(e){}
+      let btnClass = rCount > 0 ? 'btn-primary text-white' : 'btn-outline-primary';
+      let btnText = rCount > 0 ? `<i class="bi bi-list-check"></i> ${rCount} เกณฑ์` : `<i class="bi bi-list-check"></i> ตั้งค่าเกณฑ์`;
+
       tbody.innerHTML += `<tr>
         <td><input type="text" class="form-control form-control-sm asm-id mx-auto text-center fw-bold" value="${row[0]}" style="width: 90px;"></td>
         <td><input type="text" class="form-control form-control-sm asm-name" value="${row[1]}" placeholder="ชื่อภาระงาน" style="min-width: 150px;"></td>
@@ -717,6 +986,7 @@ async function loadAssignmentsConfigToUI() {
         <td><input type="datetime-local" class="form-control form-control-sm asm-start mx-auto" value="${formatDT(row[3])}" style="min-width: 160px;"></td>
         <td><input type="datetime-local" class="form-control form-control-sm asm-end mx-auto" value="${formatDT(row[4])}" style="min-width: 160px;"></td>
         <td><div class="form-check form-switch d-flex justify-content-center"><input class="form-check-input asm-active" type="checkbox" ${isChecked}></div></td>
+        <td><input type="hidden" class="asm-rubric" value='${rubricData}'><button class="btn btn-sm ${btnClass} rounded-pill shadow-sm fw-bold w-100" onclick="openRubricManager(this)">${btnText}</button></td>
         <td><button class="btn btn-sm btn-outline-danger rounded-circle" onclick="this.closest('tr').remove()"><i class="bi bi-trash3-fill"></i></button></td>
       </tr>`;
     });
@@ -733,6 +1003,7 @@ function addAssignmentsConfigRow() {
       <td><input type="datetime-local" class="form-control form-control-sm asm-start mx-auto" style="min-width: 160px;"></td>
       <td><input type="datetime-local" class="form-control form-control-sm asm-end mx-auto" style="min-width: 160px;"></td>
       <td><div class="form-check form-switch d-flex justify-content-center"><input class="form-check-input asm-active" type="checkbox" checked></div></td>
+      <td><input type="hidden" class="asm-rubric" value='[]'><button class="btn btn-sm btn-outline-primary rounded-pill shadow-sm fw-bold w-100" onclick="openRubricManager(this)"><i class="bi bi-list-check"></i> ตั้งค่าเกณฑ์</button></td>
       <td><button class="btn btn-sm btn-outline-danger rounded-circle" onclick="this.closest('tr').remove()"><i class="bi bi-trash3-fill"></i></button></td>
     </tr>`;
   tbody.appendChild(tr);
@@ -745,12 +1016,10 @@ async function saveAssignmentsConfigFromUI() {
   for(let tr of rows) {
     if(!tr.querySelector('.asm-id')) continue;
     newConfig.push([
-      tr.querySelector('.asm-id').value, 
-      tr.querySelector('.asm-name').value, 
-      tr.querySelector('.asm-desc').value,
-      revertDT(tr.querySelector('.asm-start').value), 
-      revertDT(tr.querySelector('.asm-end').value), 
-      tr.querySelector('.asm-active').checked ? 'TRUE' : 'FALSE'
+      tr.querySelector('.asm-id').value, tr.querySelector('.asm-name').value, tr.querySelector('.asm-desc').value,
+      revertDT(tr.querySelector('.asm-start').value), revertDT(tr.querySelector('.asm-end').value), 
+      tr.querySelector('.asm-active').checked ? 'TRUE' : 'FALSE',
+      tr.querySelector('.asm-rubric').value || "[]"
     ]);
   }
   const res = await callAPI('saveRawAssignmentsConfig', { configData: newConfig });
@@ -850,5 +1119,4 @@ async function saveSpeakerConfigFromUI() {
   const res = await callAPI('saveRawSpeakerConfig', { configData: newConfig });
   if (res.status === 'success') Swal.fire('สำเร็จ', res.message, 'success'); else Swal.fire('ข้อผิดพลาด', res.message, 'error');
 }
-
 </script>
