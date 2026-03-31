@@ -47,7 +47,7 @@ function processRequest(action, payload) {
       case 'getTraineeAssignments': result = getTraineeAssignments(payload.personalId); break;
       case 'submitTraineeAssignment': result = submitTraineeAssignment(payload.personalId, payload.asmId, payload.url); break;
       case 'getMentorAssignmentsList': result = getMentorAssignmentsList(payload.mentorId); break;
-      // 💡 จุดอัปเดต: เพิ่มการรับค่า payload.score
+      // 💡 รับค่า score มาจากหน้าเว็บด้วย
       case 'evaluateAssignment': result = evaluateAssignment(payload.logId, payload.status, payload.comment, payload.score); break;
 
       default: throw new Error("Action ไม่ถูกต้อง");
@@ -491,7 +491,6 @@ function saveRawAssignmentsConfig(configData) {
   } catch (err) { return { status: 'error', message: err.message }; } finally { lock.releaseLock(); }
 }
 
-// 💡 ใช้วิธีอ่านจากหัวคอลัมน์ เพื่อป้องกันการเพี้ยนเมื่อมีคนกด Enter ในช่องรายละเอียด
 function getTraineeAssignments(personalId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -559,14 +558,14 @@ function submitTraineeAssignment(personalId, asmId, url) {
     }
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
     const logId = "WORK-" + new Date().getTime();
-    // 💡 ส่งค่าว่างในคอลัมน์ H เผื่อไว้ให้คะแนน
+    // ส่งค่าว่างในคอลัมน์ H เผื่อไว้ให้คะแนน
     logSheet.appendRow([logId, personalId, asmId, url, 'รอตรวจ', '', timestamp, '']);
     SpreadsheetApp.flush();
     return { status: 'success', message: 'ส่งงานเรียบร้อยแล้ว' };
   } catch (e) { return { status: 'error', message: e.message }; } finally { lock.releaseLock(); }
 }
 
-// 💡 สร้างรูปแบบตาราง Matrix ดึงคะแนนจากคอลัมน์ H
+// 💡 8. Mentor Assignments (Matrix View & Scoring)
 function getMentorAssignmentsList(mentorId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -615,7 +614,7 @@ function getMentorAssignmentsList(mentorId) {
         const asmId = logData[i][2].toString();
         if (!submissions[pId]) submissions[pId] = {};
         if (!submissions[pId][asmId]) {
-          // 💡 ดึงคะแนนจากคอลัมน์ H (index 7)
+          // ดึงคะแนนจากคอลัมน์ H (index 7)
           submissions[pId][asmId] = {
             logId: logData[i][0], url: logData[i][3], status: logData[i][4],
             comment: logData[i][5], timestamp: logData[i][6], 
@@ -629,7 +628,7 @@ function getMentorAssignmentsList(mentorId) {
   } catch (e) { return { status: 'error', message: e.message }; }
 }
 
-// 💡 เขียนคะแนนลงคอลัมน์ H
+// 💡 เขียนคะแนนและประเมินลง DB (คอลัมน์ 8)
 function evaluateAssignment(logId, status, comment, score) {
   const lock = LockService.getScriptLock();
   try {
@@ -643,7 +642,7 @@ function evaluateAssignment(logId, status, comment, score) {
       if (data[i][0].toString() === logId.toString()) {
         logSheet.getRange(i + 1, 5).setValue(status);
         logSheet.getRange(i + 1, 6).setValue(comment);
-        // 💡 บันทึกคะแนนลงคอลัมน์ H (คอลัมน์ที่ 8)
+        // บันทึกคะแนนลงคอลัมน์ H (คอลัมน์ที่ 8)
         logSheet.getRange(i + 1, 8).setValue(score !== undefined ? score : '');
         SpreadsheetApp.flush();
         return { status: 'success', message: 'บันทึกผลการประเมินและคะแนนเรียบร้อย' };
