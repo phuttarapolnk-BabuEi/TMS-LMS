@@ -246,7 +246,7 @@ function renderSurveyUI(surveyData, targetId, title) {
   }).then((result) => { if (result.isConfirmed) { Swal.fire('สำเร็จ!', result.value.message, 'success'); } });
 }
 
-// 📌 ระบบจัดการภาระงานสำหรับผู้เข้าอบรม (Trainee)
+// 📌 ระบบส่งงานของ Trainee
 async function loadTraineeAssignments() {
   const tbody = document.getElementById('trainee-assignments-body'); if(!tbody) return;
   tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังดึงข้อมูล...</td></tr>';
@@ -284,7 +284,7 @@ async function loadTraineeAssignments() {
               }
               let commentHtml = item.comment ? `<div class="text-start small text-secondary">${item.comment}</div>` : '<span class="text-muted">-</span>';
               let descHtml = item.asm_desc ? `<div class="text-muted small mt-1 p-2 bg-light rounded border" style="line-height: 1.4;"><i class="bi bi-info-circle text-info"></i> ${item.asm_desc.replace(/\n/g, '<br>')}</div>` : '';
-              tbody.innerHTML += `<tr><td>${index + 1}</td><td class="text-start text-secondary"><span class="fw-bold">${item.asm_name}</span>${descHtml}${deadlineHtml}</td><td class="text-start">${actionHtml}</td><td>${statusBadge}</td><td class="text-start">${commentHtml}</td></tr>`;
+              tbody.innerHTML += `<tr class="align-top"><td class="text-center">${index + 1}</td><td class="text-start text-secondary"><span class="fw-bold">${item.asm_name}</span>${descHtml}${deadlineHtml}</td><td class="text-start">${actionHtml}</td><td class="text-center">${statusBadge}</td><td class="text-start">${commentHtml}</td></tr>`;
           });
       } else { tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">เกิดข้อผิดพลาด: ${res.message}</td></tr>`; }
   } catch (e) { console.error(e); }
@@ -353,17 +353,17 @@ async function fetchMentorData() {
 
       if (tTraineeBody) {
          const thead = tTraineeBody.closest('table').querySelector('thead'); let totalSlots = 0;
-         let topRow = `<tr><th rowspan="2" class="align-middle" style="width: 60px;">ลำดับ</th><th rowspan="2" class="align-middle text-start">ชื่อ-สกุล</th><th rowspan="2" class="align-middle">สังกัด</th><th rowspan="2" class="align-middle">คลัสเตอร์</th><th rowspan="2" class="align-middle">กลุ่ม</th>`;
+         let topRow = `<tr><th rowspan="2" class="align-middle text-center" style="width: 60px;">ลำดับ</th><th rowspan="2" class="align-middle text-start">ชื่อ-สกุล</th><th rowspan="2" class="align-middle text-center">สังกัด</th><th rowspan="2" class="align-middle text-center">คลัสเตอร์</th><th rowspan="2" class="align-middle text-center">กลุ่ม</th>`;
          let bottomRow = `<tr>`;
          if (res.schedule && res.schedule.length > 0) {
            res.schedule.forEach(day => {
               const slotsCount = day.slots ? day.slots.length : 0; totalSlots += slotsCount; const thDate = formatThaiDate(day.date);
-              topRow += `<th colspan="${slotsCount}" class="align-middle">วันที่ ${day.dayNo} <br><small class="fw-normal">(${thDate})</small></th>`;
-              if (day.slots) { day.slots.forEach(slot => { let slotName = slot.id === 'Morning' ? 'เช้า' : slot.id === 'Afternoon' ? 'บ่าย' : slot.id === 'Evening' ? 'เย็น' : slot.id === 'Checkout' ? 'สะท้อนผล' : slot.label; bottomRow += `<th class="fw-normal border-top" style="background-color: rgba(0,0,0,0.02);">${slotName}</th>`; }); }
+              topRow += `<th colspan="${slotsCount}" class="align-middle text-center">วันที่ ${day.dayNo} <br><small class="fw-normal">(${thDate})</small></th>`;
+              if (day.slots) { day.slots.forEach(slot => { let slotName = slot.id === 'Morning' ? 'เช้า' : slot.id === 'Afternoon' ? 'บ่าย' : slot.id === 'Evening' ? 'เย็น' : slot.id === 'Checkout' ? 'สะท้อนผล' : slot.label; bottomRow += `<th class="fw-normal border-top text-center" style="background-color: rgba(0,0,0,0.02);">${slotName}</th>`; }); }
            });
-         } else { totalSlots = 1; topRow += `<th colspan="1">ข้อมูลตารางเวลา</th>`; bottomRow += `<th>-</th>`; }
+         } else { totalSlots = 1; topRow += `<th colspan="1" class="text-center">ข้อมูลตารางเวลา</th>`; bottomRow += `<th class="text-center">-</th>`; }
 
-         topRow += `<th rowspan="2" class="align-middle border-start" style="background-color: rgba(0,0,0,0.05);">รวม<br>(ครั้ง)</th><th rowspan="2" class="align-middle border-end" style="background-color: rgba(0,0,0,0.05);">ร้อยละ<br>(%)</th></tr>`; bottomRow += `</tr>`;
+         topRow += `<th rowspan="2" class="align-middle border-start text-center" style="background-color: rgba(0,0,0,0.05);">รวม<br>(ครั้ง)</th><th rowspan="2" class="align-middle border-end text-center" style="background-color: rgba(0,0,0,0.05);">ร้อยละ<br>(%)</th></tr>`; bottomRow += `</tr>`;
          thead.innerHTML = topRow + bottomRow;
 
          let attMap = {}; res.data.forEach(log => { if(!attMap[log.personal_id]) attMap[log.personal_id] = {}; if(!attMap[log.personal_id][log.day_no]) attMap[log.personal_id][log.day_no] = {}; attMap[log.personal_id][log.day_no][log.time_slot] = (log.note && log.note.includes('[สาย]')) ? 'LATE' : 'ONTIME'; });
@@ -374,9 +374,9 @@ async function fetchMentorData() {
          if (res.traineesInfo && res.traineesInfo.length > 0) {
             res.traineesInfo.forEach((t, idx) => {
                let count = 0; let attendanceHtml = '';
-               if (res.schedule && res.schedule.length > 0) { res.schedule.forEach(day => { if (day.slots) { day.slots.forEach((slot, index) => { let isEnd = (index === day.slots.length - 1) ? 'class="border-end"' : ''; if (attMap[t.id] && attMap[t.id][day.dayNo] && attMap[t.id][day.dayNo][slot.id]) { count++; if (attMap[t.id][day.dayNo][slot.id] === 'LATE') attendanceHtml += `<td ${isEnd}>${lateMark}</td>`; else attendanceHtml += `<td ${isEnd}>${checkMark}</td>`; } else { attendanceHtml += `<td ${isEnd}>${crossMark}</td>`; } }); } }); }
+               if (res.schedule && res.schedule.length > 0) { res.schedule.forEach(day => { if (day.slots) { day.slots.forEach((slot, index) => { let isEnd = (index === day.slots.length - 1) ? 'class="border-end text-center"' : 'class="text-center"'; if (attMap[t.id] && attMap[t.id][day.dayNo] && attMap[t.id][day.dayNo][slot.id]) { count++; if (attMap[t.id][day.dayNo][slot.id] === 'LATE') attendanceHtml += `<td ${isEnd}>${lateMark}</td>`; else attendanceHtml += `<td ${isEnd}>${checkMark}</td>`; } else { attendanceHtml += `<td ${isEnd}>${crossMark}</td>`; } }); } }); }
                const percentage = totalSlots > 0 ? Math.round((count / totalSlots) * 100) : 0; const badgeColor = percentage >= 80 ? 'bg-success' : (percentage >= 50 ? 'bg-warning text-dark' : 'bg-danger');
-               tTraineeBody.innerHTML += `<tr><td class="fw-bold text-muted">${idx + 1}</td><td class="text-start fw-bold">${t.name} <br><small class="text-muted fw-normal">รหัส: <code>${t.id}</code></small></td><td>${t.area}</td><td>${t.cluster}</td><td><span class="badge bg-light text-dark border">กลุ่ม ${t.group}</span></td>${attendanceHtml}<td class="fw-bold bg-light border-start">${count}</td><td class="bg-light border-end"><span class="badge ${badgeColor}">${percentage}%</span></td></tr>`;
+               tTraineeBody.innerHTML += `<tr class="align-top"><td class="fw-bold text-muted text-center">${idx + 1}</td><td class="text-start fw-bold">${t.name} <br><small class="text-muted fw-normal">รหัส: <code>${t.id}</code></small></td><td class="text-center">${t.area}</td><td class="text-center">${t.cluster}</td><td class="text-center"><span class="badge bg-light text-dark border">กลุ่ม ${t.group}</span></td>${attendanceHtml}<td class="fw-bold bg-light border-start text-center">${count}</td><td class="bg-light border-end text-center"><span class="badge ${badgeColor}">${percentage}%</span></td></tr>`;
             });
          } else { tTraineeBody.innerHTML = `<tr><td colspan="${7 + totalSlots}" class="text-center py-4 text-muted">ไม่พบข้อมูลผู้เข้าอบรมในความดูแล</td></tr>`; }
       }
@@ -413,14 +413,14 @@ function renderMentorPaginatedTable() {
   paginatedItems.forEach(log => { 
      const isLate = log.note && log.note.includes('[สาย]'); const lateBadge = isLate ? `<span class="badge bg-warning text-dark ms-2">สาย</span>` : '';
      let displayNote = log.note ? log.note.replace('[สาย]', '').trim() : '-'; if (displayNote === '') displayNote = '-';
-     tbody.innerHTML += `<tr><td class="ps-3"><code>${log.personal_id}</code></td><td class="text-start">${log.name}</td><td>วันที่ ${log.day_no}</td><td><span class="badge bg-secondary">${timeTranslates[log.time_slot] || log.time_slot}</span>${lateBadge}</td><td class="small text-muted">${log.timestamp}</td><td class="small text-muted text-start" style="max-width: 250px; white-space: normal; word-break: break-word;">${displayNote}</td></tr>`; 
+     tbody.innerHTML += `<tr><td class="ps-3 text-center"><code>${log.personal_id}</code></td><td class="text-start">${log.name}</td><td class="text-center">วันที่ ${log.day_no}</td><td class="text-center"><span class="badge bg-secondary">${timeTranslates[log.time_slot] || log.time_slot}</span>${lateBadge}</td><td class="small text-muted text-center">${log.timestamp}</td><td class="small text-muted text-start" style="max-width: 250px; white-space: normal; word-break: break-word;">${displayNote}</td></tr>`; 
   });
   document.getElementById('mentor-pagination-info').innerText = `แสดง ${startIdx + 1} ถึง ${Math.min(startIdx + rowsPerPage, filteredMentorData.length)} จาก ${filteredMentorData.length} รายการ`;
   renderPaginationControls(Math.ceil(filteredMentorData.length / rowsPerPage), 'mentor');
 }
 function changeMentorPage(page) { mentorCurrentPage = page; renderMentorPaginatedTable(); }
 
-// 👨‍🏫 ระบบตรวจงาน Matrix + ให้คะแนน (พร้อมระบบคูณอัตโนมัติ)
+// 👨‍🏫 ระบบตรวจงาน Matrix + ให้คะแนน (มีระบบตัวคูณ และจัดหัวตารางชิดบนกึ่งกลาง)
 async function loadMentorAssignments() {
   const tbody = document.getElementById('mentor-assignments-body'); if(!tbody) return;
   const thead = document.getElementById('mentor-assignments-head');
@@ -432,18 +432,18 @@ async function loadMentorAssignments() {
         globalMatrixData = res.data; 
         const { trainees, assignments, submissions } = res.data;
         
-        let theadHtml = `<tr><th style="width: 60px;">ลำดับ</th><th class="text-start" style="width: 220px;">ชื่อ-สกุล</th>`;
-        if(assignments.length === 0) { theadHtml += `<th>ยังไม่มีการกำหนดภาระงาน</th>`; } 
-        else { assignments.forEach(asm => { theadHtml += `<th style="min-width: 140px;" class="text-primary">${asm.name}</th>`; }); }
+        let theadHtml = `<tr class="align-top"><th style="width: 60px;" class="text-center">ลำดับ</th><th class="text-start" style="width: 220px;">ชื่อ-สกุล</th>`;
+        if(assignments.length === 0) { theadHtml += `<th class="text-center">ยังไม่มีการกำหนดภาระงาน</th>`; } 
+        else { assignments.forEach(asm => { theadHtml += `<th style="min-width: 140px;" class="text-primary text-center">${asm.name}</th>`; }); }
         theadHtml += `</tr>`; thead.innerHTML = theadHtml;
 
         tbody.innerHTML = '';
         if(trainees.length === 0) { tbody.innerHTML = `<tr><td colspan="${2 + assignments.length}" class="text-center py-4 text-muted">ไม่มีผู้เข้าอบรมในความดูแล</td></tr>`; return; }
         
         trainees.forEach((trainee, index) => {
-            let rowHtml = `<tr><td class="text-muted fw-bold align-middle">${index + 1}</td><td class="text-start align-middle"><span class="fw-bold text-secondary">${trainee.name}</span><br><small class="text-muted fw-normal"><code>${trainee.id}</code></small></td>`;
+            let rowHtml = `<tr class="align-top"><td class="text-muted fw-bold align-middle text-center">${index + 1}</td><td class="text-start align-middle"><span class="fw-bold text-secondary">${trainee.name}</span><br><small class="text-muted fw-normal"><code>${trainee.id}</code></small></td>`;
             
-            if(assignments.length === 0) { rowHtml += `<td class="text-muted">-</td>`; } 
+            if(assignments.length === 0) { rowHtml += `<td class="text-muted text-center">-</td>`; } 
             else {
                assignments.forEach(asm => {
                    const sub = submissions[trainee.id] && submissions[trainee.id][asm.id];
@@ -461,13 +461,13 @@ async function loadMentorAssignments() {
 
                        let scoreBadge = sub.score ? `<br><span class="badge bg-primary mt-1 shadow-sm">ได้ ${sub.score} คะแนน</span>` : '';
 
-                       rowHtml += `<td class="align-middle border-start px-3">
+                       rowHtml += `<td class="align-middle border-start px-3 text-center">
                            <div class="mb-2">${statusBadge} ${lateBadge} ${scoreBadge}</div>
                            <button class="btn btn-sm btn-primary rounded-pill shadow-sm text-white fw-bold w-100" style="font-size:0.8rem;" onclick="openGradeModal('${sub.logId}', '${trainee.name}', '${sub.status}', \`${sub.comment || ''}\`, '${sub.url}', '${sub.score || ''}', '${asm.id}')">
                                <i class="bi bi-search"></i> ตรวจและให้คะแนน
                            </button>
                        </td>`;
-                   } else { rowHtml += `<td class="align-middle border-start text-muted"><span class="badge bg-light text-secondary border">ยังไม่ส่งงาน</span></td>`; }
+                   } else { rowHtml += `<td class="align-middle border-start text-muted text-center"><span class="badge bg-light text-secondary border">ยังไม่ส่งงาน</span></td>`; }
                });
             }
             rowHtml += `</tr>`; tbody.innerHTML += rowHtml;
@@ -476,6 +476,7 @@ async function loadMentorAssignments() {
   } catch(e) { console.error(e); }
 }
 
+// 💡 ฟอร์มตรวจงานของ Mentor (ปรับ UI ให้สะอาดตา ซ่อนตัวคูณไว้คำนวณหลังบ้าน)
 async function openGradeModal(logId, name, currentStatus, currentComment, workUrl, currentScore, asmId) {
   let embedUrl = workUrl; 
   if (embedUrl && embedUrl.includes('drive.google.com/file/d/')) { embedUrl = embedUrl.replace(/\/view.*$/, '/preview'); }
@@ -576,8 +577,10 @@ function autoCalculateScore() {
         let calculated = raw * weightMultiplier; 
         totalWeighted += calculated;
     });
-    document.getElementById('display-total-score').innerText = totalWeighted.toFixed(2);
-    document.getElementById('swal-score').value = totalWeighted.toFixed(2);
+    // 💡 ใช้ parseFloat และ toFixed ป้องกันทศนิยมยาวๆ
+    const roundedScore = parseFloat(totalWeighted.toFixed(2));
+    document.getElementById('display-total-score').innerText = roundedScore;
+    document.getElementById('swal-score').value = roundedScore;
 }
 
 function exportMentorScoresExcel() {
@@ -590,7 +593,7 @@ function exportMentorScoresExcel() {
    trainees.forEach((t, idx) => {
       let row = [idx+1, t.id, t.name]; let total = 0;
       assignments.forEach(a => { const sub = submissions[t.id] && submissions[t.id][a.id]; const score = sub && sub.score ? parseFloat(sub.score) : 0; total += score; row.push(score); });
-      row.push(total); exportData.push(row);
+      row.push(parseFloat(total.toFixed(2))); exportData.push(row);
    });
 
    const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(exportData);
@@ -604,13 +607,13 @@ function exportMentorScoresPDF() {
   let html = `<html><head><title>สรุปคะแนนภาระงาน</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
   <style>body { font-family: 'Sarabun', sans-serif; padding: 20px; color: #333; } h2 { text-align: center; margin-bottom: 20px; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; } th, td { border: 1px solid #999; padding: 10px; text-align: center; } th { background-color: #f2f2f2; font-weight: 600; } .text-start { text-align: left; } .text-end { text-align: right; } .total-col { background-color: #e9ecef; font-weight: bold; }</style></head><body>`;
   
-  html += `<h2>สรุปคะแนนภาระงานของผู้เข้าอบรม</h2><table><thead><tr><th>ลำดับ</th><th>เลขประจำตัว</th><th class="text-start">ชื่อ - นามสกุล</th>`;
-  assignments.forEach(a => html += `<th>${a.name}</th>`); html += `<th class="total-col">รวมคะแนน</th></tr></thead><tbody>`;
+  html += `<h2>สรุปคะแนนภาระงานของผู้เข้าอบรม</h2><table><thead><tr class="align-top"><th class="text-center">ลำดับ</th><th class="text-center">เลขประจำตัว</th><th class="text-start">ชื่อ - นามสกุล</th>`;
+  assignments.forEach(a => html += `<th class="text-center">${a.name}</th>`); html += `<th class="total-col text-center">รวมคะแนน</th></tr></thead><tbody>`;
 
   trainees.forEach((t, idx) => {
-     let totalScore = 0; html += `<tr><td>${idx+1}</td><td>${t.id}</td><td class="text-start">${t.name}</td>`;
-     assignments.forEach(a => { const sub = submissions[t.id] && submissions[t.id][a.id]; const score = sub && sub.score ? parseFloat(sub.score) : 0; totalScore += score; html += `<td>${score || '-'}</td>`; });
-     html += `<td class="total-col">${totalScore}</td></tr>`;
+     let totalScore = 0; html += `<tr><td class="text-center">${idx+1}</td><td class="text-center">${t.id}</td><td class="text-start">${t.name}</td>`;
+     assignments.forEach(a => { const sub = submissions[t.id] && submissions[t.id][a.id]; const score = sub && sub.score ? parseFloat(sub.score) : 0; totalScore += score; html += `<td class="text-center">${score || '-'}</td>`; });
+     html += `<td class="total-col text-center">${parseFloat(totalScore.toFixed(2))}</td></tr>`;
   });
 
   html += `</tbody></table><div class="text-end" style="margin-top:30px;">ลงชื่อ.......................................................ผู้ประเมิน<br><br>( ${currentUser.name} )<br>วันที่ ${formatThaiDate(new Date())}</div></body></html>`;
@@ -636,15 +639,15 @@ function filterProgressTable() {
 
 function renderPaginatedTable() {
   const thead = document.querySelector('#progress-table-body').closest('table').querySelector('thead'); const tbody = document.getElementById('progress-table-body');
-  let totalSlots = 0; let topRow = `<tr><th rowspan="2" class="align-middle">รหัส</th><th rowspan="2" class="align-middle">ชื่อ-สกุล</th><th rowspan="2" class="align-middle">คลัสเตอร์</th><th rowspan="2" class="align-middle">กลุ่ม</th>`; let bottomRow = `<tr>`;
+  let totalSlots = 0; let topRow = `<tr><th rowspan="2" class="align-middle text-center">รหัส</th><th rowspan="2" class="align-middle text-center">ชื่อ-สกุล</th><th rowspan="2" class="align-middle text-center">คลัสเตอร์</th><th rowspan="2" class="align-middle text-center">กลุ่ม</th>`; let bottomRow = `<tr>`;
   if (globalSchedule && globalSchedule.length > 0) {
     globalSchedule.forEach(day => {
        const slotsCount = day.slots.length; totalSlots += slotsCount; const thDate = formatThaiDate(day.date);
-       topRow += `<th colspan="${slotsCount}" class="align-middle">วันที่ ${day.dayNo} <br><small class="fw-normal">(${thDate})</small></th>`;
-       day.slots.forEach(slot => { let slotName = slot.id === 'Morning' ? 'เช้า' : slot.id === 'Afternoon' ? 'บ่าย' : slot.id === 'Evening' ? 'เย็น' : slot.id === 'Checkout' ? 'สะท้อนผล' : slot.label; bottomRow += `<th class="fw-normal border-top" style="background-color: rgba(255,255,255,0.15);">${slotName}</th>`; });
+       topRow += `<th colspan="${slotsCount}" class="align-middle text-center">วันที่ ${day.dayNo} <br><small class="fw-normal">(${thDate})</small></th>`;
+       day.slots.forEach(slot => { let slotName = slot.id === 'Morning' ? 'เช้า' : slot.id === 'Afternoon' ? 'บ่าย' : slot.id === 'Evening' ? 'เย็น' : slot.id === 'Checkout' ? 'สะท้อนผล' : slot.label; bottomRow += `<th class="fw-normal border-top text-center" style="background-color: rgba(255,255,255,0.15);">${slotName}</th>`; });
     });
-  } else { totalSlots = 1; topRow += `<th colspan="1">ข้อมูลตารางเวลา</th>`; bottomRow += `<th>-</th>`; }
-  topRow += `<th rowspan="2" class="align-middle border-start" style="background-color: rgba(0,0,0,0.05);">รวม<br>(ครั้ง)</th><th rowspan="2" class="align-middle border-end" style="background-color: rgba(0,0,0,0.05);">ร้อยละ<br>(%)</th><th rowspan="2" class="align-middle bg-info text-dark border-start">Pre-Test</th><th rowspan="2" class="align-middle bg-success text-white">ประเมิน<br>วิทยากร</th><th rowspan="2" class="align-middle bg-info text-dark">Post-Test</th><th rowspan="2" class="align-middle bg-success text-white">ความพึงพอใจ<br>โครงการ</th></tr>`; bottomRow += `</tr>`;
+  } else { totalSlots = 1; topRow += `<th colspan="1" class="text-center">ข้อมูลตารางเวลา</th>`; bottomRow += `<th class="text-center">-</th>`; }
+  topRow += `<th rowspan="2" class="align-middle border-start text-center" style="background-color: rgba(0,0,0,0.05);">รวม<br>(ครั้ง)</th><th rowspan="2" class="align-middle border-end text-center" style="background-color: rgba(0,0,0,0.05);">ร้อยละ<br>(%)</th><th rowspan="2" class="align-middle bg-info text-dark border-start text-center">Pre-Test</th><th rowspan="2" class="align-middle bg-success text-white text-center">ประเมิน<br>วิทยากร</th><th rowspan="2" class="align-middle bg-info text-dark text-center">Post-Test</th><th rowspan="2" class="align-middle bg-success text-white text-center">ความพึงพอใจ<br>โครงการ</th></tr>`; bottomRow += `</tr>`;
   thead.innerHTML = topRow + bottomRow; tbody.innerHTML = '';
   if (filteredProgressData.length === 0) { tbody.innerHTML = `<tr><td colspan="${6 + totalSlots}" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>`; document.getElementById('pagination-info').innerText = 'ไม่พบข้อมูล'; document.getElementById('pagination-controls').innerHTML = ''; return; }
   
@@ -657,7 +660,7 @@ function renderPaginatedTable() {
     if (globalSchedule && globalSchedule.length > 0) {
       globalSchedule.forEach(day => {
         day.slots.forEach((slot, index) => {
-           let isEnd = (index === day.slots.length - 1) ? 'class="border-end"' : '';
+           let isEnd = (index === day.slots.length - 1) ? 'class="border-end text-center"' : 'class="text-center"';
            if (att[day.dayNo] && att[day.dayNo][slot.id]) { count++; if (att[day.dayNo][slot.id] === 'LATE') attendanceHtml += `<td ${isEnd}>${lateMark}</td>`; else attendanceHtml += `<td ${isEnd}>${checkMark}</td>`; } else { attendanceHtml += `<td ${isEnd}>${crossMark}</td>`; }
         });
       });
@@ -669,7 +672,7 @@ function renderPaginatedTable() {
     if (surv.speakersEvaluated && surv.speakersEvaluated.length > 0) { evalSpeaker = `<span class="badge bg-success mb-1 shadow-sm">ประเมินแล้ว (${surv.speakersEvaluated.length})</span><br><div class="text-start text-muted" style="font-size: 0.7rem; line-height: 1.2; min-width: 120px;">${surv.speakersEvaluated.map(name => `• ${name}`).join('<br>')}</div>`; }
     const evalProject = surv.project ? '<span class="badge bg-success shadow-sm">ประเมินแล้ว <i class="bi bi-check-circle-fill"></i></span>' : '<span class="badge bg-light text-muted border">รอประเมิน</span>';
 
-    tbody.innerHTML += `<tr><td><code>${p.id}</code></td><td class="text-start fw-bold">${p.name}</td><td>${p.cluster || '-'}</td><td><span class="badge bg-light text-dark border">กลุ่ม ${p.group}</span></td>${attendanceHtml}<td class="fw-bold bg-light border-start">${count}</td><td class="bg-light border-end"><span class="badge ${badgeColor}">${percentage}%</span></td><td>${preScore}</td><td class="align-top">${evalSpeaker}</td><td>${postScore}</td><td class="align-top">${evalProject}</td></tr>`; 
+    tbody.innerHTML += `<tr><td class="text-center"><code>${p.id}</code></td><td class="text-start fw-bold">${p.name}</td><td class="text-center">${p.cluster || '-'}</td><td class="text-center"><span class="badge bg-light text-dark border">กลุ่ม ${p.group}</span></td>${attendanceHtml}<td class="fw-bold bg-light border-start text-center">${count}</td><td class="bg-light border-end text-center"><span class="badge ${badgeColor}">${percentage}%</span></td><td class="text-center">${preScore}</td><td class="align-top text-center">${evalSpeaker}</td><td class="text-center">${postScore}</td><td class="align-top text-center">${evalProject}</td></tr>`; 
   });
   document.getElementById('pagination-info').innerText = `แสดง ${startIdx + 1} ถึง ${Math.min(startIdx + rowsPerPage, filteredProgressData.length)} จากทั้งหมด ${filteredProgressData.length} รายการ`;
   renderPaginationControls(totalPages, 'admin');
@@ -764,71 +767,99 @@ function renderEvaluationDetail() {
   container.innerHTML = html;
 }
 
-// 🏆 ฟังก์ชันสรุปคะแนน Matrix สำหรับ Admin (ปรับ UI เหมือน Mentor)
+// 🏆 ฟังก์ชันสรุปคะแนน Matrix สำหรับ Admin (แบบมีตัวกรองค้นหา)
 async function loadAdminAssignmentsMatrix() {
   const tbody = document.getElementById('admin-matrix-body'); if(!tbody) return;
-  const thead = document.getElementById('admin-matrix-head');
   tbody.innerHTML = '<tr><td colspan="20" class="text-center py-4"><div class="spinner-border spinner-border-sm text-warning"></div> กำลังดึงข้อมูลคะแนน...</td></tr>';
   
   try {
     const res = await callAPI('getAllAssignmentsMatrix');
     if(res.status === 'success') {
         globalAdminMatrixData = res.data;
-        const { trainees, assignments, submissions } = res.data;
-        
-        let theadHtml = `<tr><th style="width: 60px;">ลำดับ</th><th class="text-start" style="width: 220px;">ชื่อ-สกุล</th>`;
-        assignments.forEach(asm => { 
-            theadHtml += `<th style="min-width: 100px;" class="text-secondary">${asm.name}</th>`; 
-        });
-        theadHtml += `<th class="bg-light fw-bold text-dark border-start">รวมคะแนน</th></tr>`; 
-        thead.innerHTML = theadHtml;
-
-        tbody.innerHTML = '';
-        if(trainees.length === 0) { 
-            tbody.innerHTML = `<tr><td colspan="${2 + assignments.length}" class="text-center py-4 text-muted">ไม่มีข้อมูลผู้เข้าอบรม</td></tr>`; return; 
-        }
-        
-        trainees.forEach((trainee, index) => {
-            let totalScore = 0;
-            let rowHtml = `<tr>
-                <td class="text-muted fw-bold align-middle">${index + 1}</td>
-                <td class="text-start align-middle">
-                    <span class="fw-bold text-secondary">${trainee.name}</span><br>
-                    <small class="text-muted fw-normal"><code>${trainee.id}</code></small>
-                </td>`;
-            
-            assignments.forEach(asm => {
-                const sub = submissions[trainee.id] && submissions[trainee.id][asm.id];
-                if(sub) {
-                    const score = parseFloat(sub.score) || 0;
-                    totalScore += score;
-                    let statusColor = sub.status === 'ผ่าน' || sub.status === 'ดี' ? 'text-success' : (sub.status === 'แก้ไข' ? 'text-danger' : 'text-warning');
-                    rowHtml += `<td class="align-middle border-start">
-                        <div class="fw-bold ${score > 0 ? 'text-primary fs-6' : statusColor}">${score > 0 ? score : sub.status}</div>
-                    </td>`;
-                } else { 
-                    rowHtml += `<td class="align-middle border-start text-muted small">-</td>`; 
-                }
-            });
-            rowHtml += `<td class="align-middle bg-light fw-bold text-dark border-start fs-6">${totalScore}</td></tr>`; 
-            tbody.innerHTML += rowHtml;
-        });
+        renderAdminMatrixTable();
     } else { 
         tbody.innerHTML = `<tr><td colspan="20" class="text-center py-4 text-danger">ข้อผิดพลาด: ${res.message}</td></tr>`; 
     }
   } catch(e) { console.error(e); }
 }
 
+function renderAdminMatrixTable() {
+    if (!globalAdminMatrixData) return;
+    const tbody = document.getElementById('admin-matrix-body'); 
+    const thead = document.getElementById('admin-matrix-head');
+    
+    const keyword = document.getElementById('search-matrix') ? document.getElementById('search-matrix').value.toLowerCase() : '';
+    const selectedGroup = document.getElementById('filter-matrix-group') ? document.getElementById('filter-matrix-group').value : 'ALL';
+
+    const { trainees, assignments, submissions } = globalAdminMatrixData;
+
+    const filteredTrainees = trainees.filter(t => {
+        const matchKeyword = t.name.toLowerCase().includes(keyword) || t.id.toString().includes(keyword);
+        const matchGroup = selectedGroup === 'ALL' || t.group.toString() === selectedGroup;
+        return matchKeyword && matchGroup;
+    });
+
+    let theadHtml = `<tr class="align-top"><th style="width: 60px;" class="text-center">ลำดับ</th><th class="text-start" style="width: 220px;">ชื่อ-สกุล</th>`;
+    assignments.forEach(asm => { 
+        theadHtml += `<th style="min-width: 100px;" class="text-secondary text-center">${asm.name}</th>`; 
+    });
+    theadHtml += `<th class="bg-light fw-bold text-dark border-start text-center">รวม<br>คะแนน</th></tr>`; 
+    thead.innerHTML = theadHtml;
+
+    tbody.innerHTML = '';
+    if(filteredTrainees.length === 0) { 
+        tbody.innerHTML = `<tr><td colspan="${2 + assignments.length}" class="text-center py-4 text-muted">ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา</td></tr>`; return; 
+    }
+    
+    filteredTrainees.forEach((trainee, index) => {
+        let totalScore = 0;
+        let rowHtml = `<tr>
+            <td class="text-muted fw-bold align-middle text-center">${index + 1}</td>
+            <td class="text-start align-middle">
+                <span class="fw-bold text-secondary">${trainee.name}</span><br>
+                <small class="text-muted fw-normal"><code>${trainee.id}</code></small>
+            </td>`;
+        
+        assignments.forEach(asm => {
+            const sub = submissions[trainee.id] && submissions[trainee.id][asm.id];
+            if(sub) {
+                const score = parseFloat(sub.score) || 0;
+                totalScore += score;
+                let statusColor = sub.status === 'ผ่าน' || sub.status === 'ดี' ? 'text-success' : (sub.status === 'แก้ไข' ? 'text-danger' : 'text-warning');
+                rowHtml += `<td class="align-middle border-start text-center">
+                    <div class="fw-bold ${score > 0 ? 'text-primary fs-6' : statusColor}">${score > 0 ? score : sub.status}</div>
+                </td>`;
+            } else { 
+                rowHtml += `<td class="align-middle border-start text-muted small text-center">-</td>`; 
+            }
+        });
+        rowHtml += `<td class="align-middle bg-light fw-bold text-dark border-start fs-6 text-center">${parseFloat(totalScore.toFixed(2))}</td></tr>`; 
+        tbody.innerHTML += rowHtml;
+    });
+}
+
 function exportAdminMatrixExcel() {
    if(!globalAdminMatrixData || !globalAdminMatrixData.trainees || globalAdminMatrixData.trainees.length === 0) return Swal.fire('แจ้งเตือน', 'ไม่มีข้อมูลให้ส่งออก', 'warning');
+   
+   const keyword = document.getElementById('search-matrix') ? document.getElementById('search-matrix').value.toLowerCase() : '';
+   const selectedGroup = document.getElementById('filter-matrix-group') ? document.getElementById('filter-matrix-group').value : 'ALL';
+
    const { trainees, assignments, submissions } = globalAdminMatrixData;
    
+   const filteredTrainees = trainees.filter(t => {
+        const matchKeyword = t.name.toLowerCase().includes(keyword) || t.id.toString().includes(keyword);
+        const matchGroup = selectedGroup === 'ALL' || t.group.toString() === selectedGroup;
+        return matchKeyword && matchGroup;
+   });
+
+   if(filteredTrainees.length === 0) return Swal.fire('แจ้งเตือน', 'ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา', 'warning');
+
    let exportData = [];
    let header = ["ลำดับ", "เลขประจำตัว", "ชื่อ - นามสกุล"];
    assignments.forEach(a => header.push(a.name)); header.push("รวมคะแนน");
    exportData.push(header);
 
-   trainees.forEach((t, idx) => {
+   filteredTrainees.forEach((t, idx) => {
       let row = [idx+1, t.id, t.name]; 
       let total = 0;
       assignments.forEach(a => { 
@@ -837,12 +868,13 @@ function exportAdminMatrixExcel() {
           total += score; 
           row.push(score || 0); 
       });
-      row.push(total); exportData.push(row);
+      row.push(parseFloat(total.toFixed(2))); exportData.push(row);
    });
 
    const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(exportData);
+   const sheetName = selectedGroup === 'ALL' ? 'ทั้งหมด' : `กลุ่ม_${selectedGroup}`;
    XLSX.utils.book_append_sheet(wb, ws, "Matrix_Scores"); 
-   XLSX.writeFile(wb, `สรุปคะแนนภาระงานภาพรวม_${new Date().getTime()}.xlsx`);
+   XLSX.writeFile(wb, `สรุปคะแนนภาระงาน_${sheetName}_${new Date().getTime()}.xlsx`);
 }
 
 // ⚙️ Admin CRUD (การตั้งค่า)
@@ -935,7 +967,11 @@ function calculateTotalWeight() {
         total += (max * weight);
     });
     const totalEl = document.getElementById('rubric-total-weight');
-    if(totalEl) { totalEl.innerText = total; } 
+    if(totalEl) { 
+        // 💡 ปัดเศษทศนิยมไม่เกิน 2 ตำแหน่ง
+        const roundedTotal = parseFloat(total.toFixed(2));
+        totalEl.innerText = roundedTotal; 
+    } 
 }
 
 async function loadAssignmentsConfigToUI() {
