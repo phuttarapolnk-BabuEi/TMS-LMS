@@ -15,8 +15,8 @@ let globalMentorData = [];
 let filteredMentorData = [];
 let mentorChartInstance = null;  
 let mentorCurrentPage = 1;
-let globalMatrixData = null; // ข้อมูลโหลด Excel/PDF ของ Mentor
-let globalAdminMatrixData = null; // ข้อมูลโหลด Excel ของ Admin
+let globalMatrixData = null; 
+let globalAdminMatrixData = null; 
 
 let globalEvalData = null; 
 let preChartInstance = null; 
@@ -420,7 +420,7 @@ function renderMentorPaginatedTable() {
 }
 function changeMentorPage(page) { mentorCurrentPage = page; renderMentorPaginatedTable(); }
 
-// 👨‍🏫 ระบบตรวจงาน Matrix + ให้คะแนน (มีระบบตัวคูณ)
+// 👨‍🏫 ระบบตรวจงาน Matrix + ให้คะแนน (พร้อมระบบคูณอัตโนมัติ)
 async function loadMentorAssignments() {
   const tbody = document.getElementById('mentor-assignments-body'); if(!tbody) return;
   const thead = document.getElementById('mentor-assignments-head');
@@ -476,7 +476,6 @@ async function loadMentorAssignments() {
   } catch(e) { console.error(e); }
 }
 
-// 💡 ฟอร์มตรวจงานของ Mentor (ปรับ UI ให้สะอาดตา ซ่อนตัวคูณไว้คำนวณหลังบ้าน)
 async function openGradeModal(logId, name, currentStatus, currentComment, workUrl, currentScore, asmId) {
   let embedUrl = workUrl; 
   if (embedUrl && embedUrl.includes('drive.google.com/file/d/')) { embedUrl = embedUrl.replace(/\/view.*$/, '/preview'); }
@@ -491,7 +490,6 @@ async function openGradeModal(logId, name, currentStatus, currentComment, workUr
           <label class="form-label fw-bold text-success mb-3"><i class="bi bi-ui-checks-grid"></i> เกณฑ์การให้คะแนนย่อย</label>
           <div id="rubric-inputs-container">`;
       rubrics.forEach((r, i) => {
-          // 💡 ปรับคำอธิบายให้คลีนขึ้นตามที่พี่ต้องการ และเปลี่ยน Placeholder เป็นคำว่า "คะแนน"
           scoreFormHtml += `
             <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                <span class="small text-muted text-start" style="line-height: 1.2;">
@@ -766,39 +764,6 @@ function renderEvaluationDetail() {
   container.innerHTML = html;
 }
 
-// 💡 การดึงลิงก์ Assessment จากตาราง Users
-async function fetchAssessmentLinks() {
-  const tbody = document.getElementById('assessment-links-body'); if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> กำลังดึงข้อมูลลิงก์จากรายชื่อผู้ใช้...</td></tr>';
-  
-  try {
-    const res = await callAPI('getAssessmentConfig'); 
-    if (res.status === 'success') {
-      tbody.innerHTML = ''; 
-      if (!res.data || res.data.length <= 1) { 
-        tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-4">ยังไม่ได้ระบุลิงก์ในคอลัมน์ Link_Table ของตาราง Users</td></tr>'; 
-        return; 
-      }
-      
-      for (let i = 1; i < res.data.length; i++) {
-        const row = res.data[i]; const group = row[0]; const url = row[1]; const name = row[2];
-        tbody.innerHTML += `
-          <tr>
-            <td class="fw-bold text-secondary align-middle">
-              <div class="fs-6">กลุ่มที่ ${group}</div>
-              <small class="text-primary fw-normal"><i class="bi bi-person-circle"></i> ${name}</small>
-            </td>
-            <td class="text-start align-middle">
-              <a href="${url}" target="_blank" class="btn btn-sm btn-primary rounded-pill px-4 shadow-sm fw-bold" style="color: #ffffff !important;">
-                <i class="bi bi-file-earmark-spreadsheet me-1"></i> เข้าสู่ระบบจัดการข้อมูล
-              </a>
-            </td>
-          </tr>`;
-      }
-    } else { tbody.innerHTML = `<tr><td colspan="2" class="text-center py-4 text-danger">ข้อผิดพลาด: ${res.message}</td></tr>`; }
-  } catch (error) { console.error(error); tbody.innerHTML = `<tr><td colspan="2" class="text-center py-4 text-danger">ขัดข้องทางเทคนิค</td></tr>`; }
-}
-
 // 🏆 ฟังก์ชันสรุปคะแนน Matrix สำหรับ Admin (ปรับ UI เหมือน Mentor)
 async function loadAdminAssignmentsMatrix() {
   const tbody = document.getElementById('admin-matrix-body'); if(!tbody) return;
@@ -953,6 +918,13 @@ function getRubricRowHtml(name, max, weight) {
         <td><input type="number" class="form-control form-control-sm r-weight text-center shadow-sm fw-bold text-success" placeholder="เช่น 1.5" value="${weight}" oninput="calculateTotalWeight()" step="0.1"></td>
         <td><button class="btn btn-sm btn-outline-danger border-0" onclick="this.closest('tr').remove(); calculateTotalWeight();"><i class="bi bi-trash3-fill"></i></button></td>
     </tr>`;
+}
+
+function addRubricRow() { 
+    const tbody = document.getElementById('rubric-tbody');
+    if (tbody) {
+        tbody.insertAdjacentHTML('beforeend', getRubricRowHtml('', '', '')); 
+    }
 }
 
 function calculateTotalWeight() {
