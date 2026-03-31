@@ -47,7 +47,9 @@ function processRequest(action, payload) {
       case 'getTraineeAssignments': result = getTraineeAssignments(payload.personalId); break;
       case 'submitTraineeAssignment': result = submitTraineeAssignment(payload.personalId, payload.asmId, payload.url); break;
       case 'getMentorAssignmentsList': result = getMentorAssignmentsList(payload.mentorId); break;
+      // 💡 จุดอัปเดต: เพิ่มการรับค่า payload.score
       case 'evaluateAssignment': result = evaluateAssignment(payload.logId, payload.status, payload.comment, payload.score); break;
+
       default: throw new Error("Action ไม่ถูกต้อง");
     }
     return result; 
@@ -489,17 +491,16 @@ function saveRawAssignmentsConfig(configData) {
   } catch (err) { return { status: 'error', message: err.message }; } finally { lock.releaseLock(); }
 }
 
+// 💡 ใช้วิธีอ่านจากหัวคอลัมน์ เพื่อป้องกันการเพี้ยนเมื่อมีคนกด Enter ในช่องรายละเอียด
 function getTraineeAssignments(personalId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let confSheet = ss.getSheetByName('Assignments_Config');
     if (!confSheet) return { status: 'error', message: 'ไม่พบชีต Assignments_Config' };
 
-    // 💡 ใช้ getDisplayValues() เพื่ออ่านค่าข้อความตรงๆ ไม่ให้เพี้ยนเวลามี Enter
     const confData = confSheet.getDataRange().getDisplayValues(); 
     if (confData.length < 2) return { status: 'success', data: [] };
 
-    // 💡 หา Index ของคอลัมน์อัตโนมัติจากบรรทัดแรก (Header)
     const headers = confData[0];
     const idIdx = headers.indexOf('asm_id');
     const nameIdx = headers.indexOf('asm_name');
@@ -509,14 +510,12 @@ function getTraineeAssignments(personalId) {
     const activeIdx = headers.indexOf('is_active');
 
     let assignments = [];
-    // วนลูปอ่านข้อมูลตั้งแต่บรรทัดที่ 2
     for (let i = 1; i < confData.length; i++) {
-      // เช็คว่าหาคอลัมน์ is_active เจอไหม และค่าข้างในเป็น TRUE หรือไม่
       if (activeIdx !== -1 && confData[i][activeIdx].trim().toUpperCase() === 'TRUE') { 
         assignments.push({ 
           id: confData[i][idIdx].trim(), 
           name: confData[i][nameIdx].trim(),
-          desc: descIdx !== -1 ? confData[i][descIdx] : '', // ดึงข้อความมาเลย (รวมถึงที่เคาะ Enter ไว้ด้วย)
+          desc: descIdx !== -1 ? confData[i][descIdx] : '',
           start: startIdx !== -1 ? confData[i][startIdx].trim() : '',
           end: endIdx !== -1 ? confData[i][endIdx].trim() : '' 
         }); 
@@ -556,64 +555,81 @@ function submitTraineeAssignment(personalId, asmId, url) {
     let logSheet = ss.getSheetByName('Assignments_Log');
     if (!logSheet) {
       logSheet = ss.insertSheet('Assignments_Log');
-      logSheet.appendRow(['log_id', 'personal_id', 'asm_id', 'url', 'status', 'comment', 'timestamp']);
+      logSheet.appendRow(['log_id', 'personal_id', 'asm_id', 'url', 'status', 'comment', 'timestamp', 'score']);
     }
     const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
     const logId = "WORK-" + new Date().getTime();
-    logSheet.appendRow([logId, personalId, asmId, url, 'รอตรวจ', '', timestamp]);
+    // 💡 ส่งค่าว่างในคอลัมน์ H เผื่อไว้ให้คะแนน
+    logSheet.appendRow([logId, personalId, asmId, url, 'รอตรวจ', '', timestamp, '']);
     SpreadsheetApp.flush();
     return { status: 'success', message: 'ส่งงานเรียบร้อยแล้ว' };
   } catch (e) { return { status: 'error', message: e.message }; } finally { lock.releaseLock(); }
 }
 
+// 💡 สร้างรูปแบบตาราง Matrix ดึงคะแนนจากคอลัมน์ H
 function getMentorAssignmentsList(mentorId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const usersData = ss.getSheetByName('Users').getDataRange().getValues();
-    const idIdx = usersData[0].indexOf('personal_id'); const nameIdx = usersData[0].indexOf('name');
-    const roleIdx = usersData[0].indexOf('role'); const mentorIdx = usersData[0].indexOf('mentor_id');
+    const idIdx = usersData[0].indexOf('personal_id');
+    const nameIdx = usersData[0].indexOf('name');
+    const roleIdx = usersData[0].indexOf('role');
+    const mentorIdx = usersData[0].indexOf('mentor_id');
 
     let trainees = [];
     for (let i = 1; i < usersData.length; i++) {
       if (usersData[i][roleIdx].toString().trim().toUpperCase() === 'TRAINEE') {
         const assignedMentors = usersData[i][mentorIdx].toString().split(',').map(m => m.trim());
-        if (assignedMentors.includes(mentorId.toString().trim())) trainees.push({ id: usersData[i][idIdx].toString(), name: usersData[i][nameIdx].toString() });
+        if (assignedMentors.includes(mentorId.toString().trim())) {
+          trainees.push({ id: usersData[i][idIdx].toString(), name: usersData[i][nameIdx].toString() });
+        }
       }
     }
 
     let confSheet = ss.getSheetByName('Assignments_Config');
     if (!confSheet) return { status: 'error', message: 'ไม่พบชีต Assignments_Config' };
     const confData = confSheet.getDataRange().getDisplayValues();
-    const cHeaders = confData[0]; const cIdIdx = cHeaders.indexOf('asm_id'); const cNameIdx = cHeaders.indexOf('asm_name');
-    const cEndIdx = cHeaders.indexOf('end_datetime'); const cActIdx = cHeaders.indexOf('is_active');
+    const cHeaders = confData[0];
+    const cIdIdx = cHeaders.indexOf('asm_id');
+    const cNameIdx = cHeaders.indexOf('asm_name');
+    const cEndIdx = cHeaders.indexOf('end_datetime');
+    const cActIdx = cHeaders.indexOf('is_active');
 
     let assignments = [];
     for (let i = 1; i < confData.length; i++) {
       if(cIdIdx !== -1 && cActIdx !== -1 && confData[i][cActIdx].trim().toUpperCase() === 'TRUE') {
-         assignments.push({ id: confData[i][cIdIdx].trim(), name: cNameIdx !== -1 ? confData[i][cNameIdx].trim() : '', end: cEndIdx !== -1 ? confData[i][cEndIdx].trim() : '' });
+         assignments.push({
+             id: confData[i][cIdIdx].trim(),
+             name: cNameIdx !== -1 ? confData[i][cNameIdx].trim() : '',
+             end: cEndIdx !== -1 ? confData[i][cEndIdx].trim() : ''
+         });
       }
     }
 
-    let logSheet = ss.getSheetByName('Assignments_Log'); let submissions = {};
+    let logSheet = ss.getSheetByName('Assignments_Log');
+    let submissions = {};
     if (logSheet) {
       const logData = logSheet.getDataRange().getValues();
       for (let i = logData.length - 1; i >= 1; i--) {
-        const pId = logData[i][1].toString(); const asmId = logData[i][2].toString();
+        const pId = logData[i][1].toString();
+        const asmId = logData[i][2].toString();
         if (!submissions[pId]) submissions[pId] = {};
         if (!submissions[pId][asmId]) {
-          // 💡 ดึงคะแนนจากคอลัมน์ H (index 7) มาเก็บใส่ object ด้วย
-          submissions[pId][asmId] = { 
-              logId: logData[i][0], url: logData[i][3], status: logData[i][4], 
-              comment: logData[i][5], timestamp: logData[i][6], 
-              score: logData[i][7] !== undefined ? logData[i][7] : '' 
+          // 💡 ดึงคะแนนจากคอลัมน์ H (index 7)
+          submissions[pId][asmId] = {
+            logId: logData[i][0], url: logData[i][3], status: logData[i][4],
+            comment: logData[i][5], timestamp: logData[i][6], 
+            score: logData[i][7] !== undefined ? logData[i][7] : ''
           };
         }
       }
     }
+
     return { status: 'success', data: { trainees: trainees, assignments: assignments, submissions: submissions } };
   } catch (e) { return { status: 'error', message: e.message }; }
 }
 
+// 💡 เขียนคะแนนลงคอลัมน์ H
 function evaluateAssignment(logId, status, comment, score) {
   const lock = LockService.getScriptLock();
   try {
@@ -625,33 +641,12 @@ function evaluateAssignment(logId, status, comment, score) {
     const data = logSheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (data[i][0].toString() === logId.toString()) {
-        logSheet.getRange(i + 1, 5).setValue(status); 
-        logSheet.getRange(i + 1, 6).setValue(comment); 
-        // 💡 บันทึกคะแนนลงคอลัมน์ H (ถ้ามีค่า)
-        logSheet.getRange(i + 1, 8).setValue(score || ''); 
+        logSheet.getRange(i + 1, 5).setValue(status);
+        logSheet.getRange(i + 1, 6).setValue(comment);
+        // 💡 บันทึกคะแนนลงคอลัมน์ H (คอลัมน์ที่ 8)
+        logSheet.getRange(i + 1, 8).setValue(score !== undefined ? score : '');
         SpreadsheetApp.flush();
         return { status: 'success', message: 'บันทึกผลการประเมินและคะแนนเรียบร้อย' };
-      }
-    }
-    return { status: 'error', message: 'ไม่พบรายการส่งงานนี้' };
-  } catch (e) { return { status: 'error', message: e.message }; } finally { lock.releaseLock(); }
-}
-
-function evaluateAssignment(logId, status, comment) {
-  const lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(10000);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let logSheet = ss.getSheetByName('Assignments_Log');
-    if (!logSheet) return { status: 'error', message: 'Sheet not found' };
-
-    const data = logSheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0].toString() === logId.toString()) {
-        logSheet.getRange(i + 1, 5).setValue(status); 
-        logSheet.getRange(i + 1, 6).setValue(comment); 
-        SpreadsheetApp.flush();
-        return { status: 'success', message: 'บันทึกผลการประเมินเรียบร้อย' };
       }
     }
     return { status: 'error', message: 'ไม่พบรายการส่งงานนี้' };
